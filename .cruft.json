@@ -1,0 +1,43 @@
+{
+  "template": "https://github.com/flaviogorini/cookiecutter_chartbook",
+  "commit": "e6351c858bb95d55e01ad577b845c71d4105a6a4",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "project_name": "finm33200_project",
+      "project_slug": "finm33200_project",
+      "project_description": "Generative and agentic AI Final Project",
+      "author_name": "X",
+      "author_email": "X",
+      "python_version": "3.12",
+      "environment_manager": "pip",
+      "include_latex_reports": true,
+      "include_jupyter_notebooks": true,
+      "include_r_scripts": false,
+      "include_stata_scripts": false,
+      "include_chartbook": true,
+      "include_github_actions": true,
+      "include_fred": false,
+      "include_fed_yield_curve": false,
+      "include_ofr_api": false,
+      "include_bloomberg": false,
+      "include_crsp_stock": true,
+      "include_crsp_compustat": true,
+      "_copy_without_render": [
+        "*.bst",
+        "*.sty",
+        "*.eps",
+        "*.ipe",
+        "*.png",
+        "*.pdf",
+        "*.tex",
+        "*.bib",
+        ".github/workflows/*.yml",
+        ".claude/skills/*/*.md"
+      ],
+      "_template": "https://github.com/flaviogorini/cookiecutter_chartbook",
+      "_commit": "e6351c858bb95d55e01ad577b845c71d4105a6a4"
+    }
+  },
+  "directory": null
+}
