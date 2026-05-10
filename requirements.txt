@@ -47,3 +47,8 @@ chartbook[all]>=0.0.14
 # WRDS data access
 wrds>=3.2.0
 
+# Bloomberg data access
+# blpapi must be fetched from Bloomberg's private index (requires Bloomberg terminal)
+--extra-index-url https://blpapi.bloomberg.com/repository/releases/python/simple/
+blpapi
+blp
