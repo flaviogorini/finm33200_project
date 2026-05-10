@@ -109,6 +109,40 @@ def task_pull():
         "file_dep": ["./src/settings.py", "./src/pull_CRSP_compustat.py"],
         "clean": [],
     }
+    yield {
+        "name": "manual_macro",
+        "doc": "Parse manual Bloomberg macro Excel into parquet",
+        "actions": [
+            "python ./src/settings.py",
+            "python ./src/pull_manual_macro.py",
+        ],
+        "targets": [DATA_DIR / "Macro_Data_US.parquet"],
+        "file_dep": [
+            "./src/settings.py",
+            "./src/pull_manual_macro.py",
+            str(Path(MANUAL_DATA_DIR) / "Macro_Data_US.xlsx"),
+        ],
+        "clean": [],
+    }
+    yield {
+        "name": "manual_companies",
+        "doc": "Parse manual Bloomberg company prediction Excel into parquet",
+        "actions": [
+            "python ./src/settings.py",
+            "python ./src/pull_manual_companies.py",
+        ],
+        "targets": [
+            DATA_DIR / "US_Companies_Forecast.parquet",
+            DATA_DIR / "US_Companies_Hist_Data.parquet",
+        ],
+        "file_dep": [
+            "./src/settings.py",
+            "./src/pull_manual_companies.py",
+            "./src/pull_manual_macro.py",
+            str(Path(MANUAL_DATA_DIR) / "US_Companies_Prediction_Data.xlsx"),
+        ],
+        "clean": [],
+    }
 
 
 def task_summary_stats():
