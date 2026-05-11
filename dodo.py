@@ -86,29 +86,13 @@ def task_config():
 
 
 def task_pull():
-    """Pull data from external sources"""
-    yield {
-        "name": "crsp_stock",
-        "doc": "Pull CRSP stock data from WRDS",
-        "actions": [
-            "python ./src/settings.py",
-            "python ./src/pull_CRSP_stock.py",
-        ],
-        "targets": [DATA_DIR / "CRSP_monthly_stock.parquet"],
-        "file_dep": ["./src/settings.py", "./src/pull_CRSP_stock.py"],
-        "clean": [],
-    }
-    yield {
-        "name": "crsp_compustat",
-        "doc": "Pull CRSP Compustat data from WRDS",
-        "actions": [
-            "python ./src/settings.py",
-            "python ./src/pull_CRSP_Compustat.py",
-        ],
-        "targets": [DATA_DIR / "CRSP_Compustat.parquet"],
-        "file_dep": ["./src/settings.py", "./src/pull_CRSP_compustat.py"],
-        "clean": [],
-    }
+    """Pull data from external sources.
+
+    Note: the cookiecutter `crsp_stock` and `crsp_compustat` yields were
+    removed; their parquet outputs aren't consumed by anything in the
+    current pipeline. The scripts (src/pull_CRSP_*.py) remain on disk
+    in case CRSP is reintroduced as a data source later.
+    """
     yield {
         "name": "manual_macro",
         "doc": "Parse manual Bloomberg macro Excel into parquet",
@@ -145,7 +129,7 @@ def task_pull():
     }
     yield {
         "name": "sec_10q_filings",
-        "doc": "Pull SEC 10-Q filings (metadata + raw/clean text) from WRDS via SFTP",
+        "doc": "Pull SEC 10-Q filings from SEC EDGAR via HTTPS (edgartools)",
         "actions": [
             "python ./src/settings.py",
             "python ./src/pull_sec_10q_filings.py",
@@ -350,6 +334,17 @@ def task_predict_returns():
     }
 
 
+def _clean_chronos2_outputs():
+    """`doit clean forecast_chronos2` removes all chronos2_forecast_* artifacts.
+
+    The forecast filename is parameterised by `as_of`, so we can't list a
+    fixed `targets` — glob and unlink instead.
+    """
+    for pattern in ("chronos2_forecast_*.parquet", "chronos2_forecast_*.png"):
+        for p in Path(OUTPUT_DIR).glob(pattern):
+            p.unlink(missing_ok=True)
+
+
 def task_forecast_chronos2():
     """Zero-shot 4Q forecast of revenue + net_income for AAPL with Chronos-2."""
     return {
@@ -361,26 +356,7 @@ def task_forecast_chronos2():
         ],
         "uptodate": [False],  # forecast as_of changes; always re-run
         "verbosity": 2,
-    }
-
-
-def task_summary_stats():
-    """Generate summary statistics tables"""
-    file_dep = ["./src/example_table.py"]
-    file_output = [
-        "example_table.tex",
-        "pandas_to_latex_simple_table1.tex",
-    ]
-    targets = [OUTPUT_DIR / file for file in file_output]
-
-    return {
-        "actions": [
-            "python ./src/example_table.py",
-            "python ./src/pandas_to_latex_demo.py",
-        ],
-        "targets": targets,
-        "file_dep": file_dep,
-        "clean": True,
+        "clean": [_clean_chronos2_outputs],
     }
 
 
@@ -388,6 +364,19 @@ notebook_tasks = {
     "01_example_notebook_interactive.ipynb.py": {
         "path": "./src/01_example_notebook_interactive.ipynb.py",
         "file_dep": [],
+        "targets": [],
+    },
+    "02_aapl_panel_chronos2_demo.ipynb.py": {
+        "path": "./src/02_aapl_panel_chronos2_demo.ipynb.py",
+        "file_dep": [str(Path(DATA_DIR) / "panel_monthly.parquet")],
+        "targets": [],
+    },
+    "03_ckx_return_prediction.ipynb.py": {
+        "path": "./src/03_ckx_return_prediction.ipynb.py",
+        "file_dep": [
+            str(Path(OUTPUT_DIR) / "ckx_predictions.parquet"),
+            str(Path(OUTPUT_DIR) / "ckx_metrics.json"),
+        ],
         "targets": [],
     },
 }
