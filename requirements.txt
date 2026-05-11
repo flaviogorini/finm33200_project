@@ -59,3 +59,8 @@ tiktoken>=0.7.0
 chronos-forecasting
 torch>=2.2.0
 transformers>=4.40.0
+
+# 10-Q signals pipeline (SEC filings text → LM sentiment + embedding panel)
+beautifulsoup4
+lxml
+faiss-cpu

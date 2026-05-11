@@ -25,7 +25,7 @@ DATA_DIR = config("DATA_DIR")
 MANUAL_DATA_DIR = config("MANUAL_DATA_DIR")
 OUTPUT_DIR = config("OUTPUT_DIR")
 OS_TYPE = config("OS_TYPE")
-USER = config("USER")
+USER = environ.get("USER") or environ.get("USERNAME", "")  # USER on POSIX, USERNAME on Windows
 
 ## Helpers for handling Jupyter Notebook tasks
 environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
@@ -141,6 +141,82 @@ def task_pull():
             "./src/pull_manual_macro.py",
             str(Path(MANUAL_DATA_DIR) / "US_Companies_Prediction_Data.xlsx"),
         ],
+        "clean": [],
+    }
+    yield {
+        "name": "sec_10q_filings",
+        "doc": "Pull SEC 10-Q filings (metadata + raw/clean text) from WRDS via SFTP",
+        "actions": [
+            "python ./src/settings.py",
+            "python ./src/pull_sec_10q_filings.py",
+        ],
+        "targets": [DATA_DIR / "sec_10q" / "_meta" / "filing_index.csv"],
+        "file_dep": [
+            "./src/settings.py",
+            "./src/pull_sec_10q_filings.py",
+        ],
+        "clean": [],
+    }
+
+
+def task_process_10q():
+    """Process the cached 10-Q filings into a (date, ticker) monthly panel.
+
+    Stages: clean → score → panel. The `embed` stage is intentionally NOT a
+    dependency of `panel`: it requires OPENAI_API_KEY and incurs API cost,
+    so it is opt-in via `doit process_10q:embed`. When the key is unset,
+    the embed script prints a notice and exits cleanly.
+    """
+    yield {
+        "name": "clean",
+        "doc": "Parse SGML/HTML 10-Q filings into per-section text files",
+        "actions": ["python ./src/clean_sec_10q_text.py"],
+        "targets": [DATA_DIR / "sec_10q" / "_meta" / "cleaned_index.csv"],
+        "file_dep": [
+            "./src/settings.py",
+            "./src/clean_sec_10q_text.py",
+            DATA_DIR / "sec_10q" / "_meta" / "filing_index.csv",
+        ],
+        "clean": [],
+    }
+    yield {
+        "name": "score",
+        "doc": "Compute LM-dictionary sentiment + lexical drift features per filing",
+        "actions": ["python ./src/score_sec_10q_text.py"],
+        "targets": [DATA_DIR / "sec_10q" / "10q_features.parquet"],
+        "file_dep": [
+            "./src/settings.py",
+            "./src/score_sec_10q_text.py",
+            DATA_DIR / "sec_10q" / "_meta" / "cleaned_index.csv",
+        ],
+        "clean": [],
+    }
+    yield {
+        "name": "panel",
+        "doc": "Build point-in-time (date, ticker) monthly 10-Q panel",
+        "actions": ["python ./src/build_10q_monthly_panel.py"],
+        "targets": [DATA_DIR / "sec_10q_monthly_panel.parquet"],
+        "file_dep": [
+            "./src/settings.py",
+            "./src/build_10q_monthly_panel.py",
+            DATA_DIR / "sec_10q" / "10q_features.parquet",
+        ],
+        "clean": [],
+    }
+    yield {
+        "name": "embed",
+        "doc": (
+            "Optional: OpenAI embeddings + FAISS for semantic drift. "
+            "Run only when OPENAI_API_KEY is set; not a dependency of `panel`."
+        ),
+        "actions": ["python ./src/embed_sec_10q_text.py"],
+        "targets": [],
+        "file_dep": [
+            "./src/settings.py",
+            "./src/embed_sec_10q_text.py",
+            DATA_DIR / "sec_10q" / "_meta" / "cleaned_index.csv",
+        ],
+        "uptodate": [False],
         "clean": [],
     }
 
