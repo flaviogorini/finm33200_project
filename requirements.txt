@@ -52,3 +52,9 @@ wrds>=3.2.0
 --extra-index-url https://blpapi.bloomberg.com/repository/releases/python/simple/
 blpapi
 blp
+
+# 10-Q signals pipeline (SEC filings text → LM sentiment + embedding panel)
+beautifulsoup4
+lxml
+openai
+faiss-cpu

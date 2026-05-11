@@ -156,3 +156,66 @@ To update the requirements file after adding new packages:
 pip freeze > requirements.txt
 ```
 
+## 10-Q Signals Pipeline
+
+A 5-stage pipeline that turns SEC 10-Q filings (pulled from WRDS) into a
+point-in-time `(date, ticker)` monthly panel of text-derived features.
+The panel is namespaced with `10q_*` columns so it joins cleanly with the
+other team feeds (earnings transcripts, ratios, macro) on `(date, ticker)`.
+
+### Run order
+
+```bash
+doit pull:sec_10q_filings      # WRDS SEC SFTP → _data/sec_10q/{TICKER}/wrds_*_filings/
+doit process_10q:clean         # → _data/sec_10q/{TICKER}/processed_text/*.txt
+doit process_10q:score         # LM-dictionary + lexical drift → 10q_features.parquet
+doit process_10q:panel         # merge_asof monthly grid → sec_10q_monthly_panel.parquet
+doit process_10q:embed         # OPTIONAL: OpenAI embeddings + FAISS (needs OPENAI_API_KEY)
+```
+
+The `embed` task is opt-in: it is **not** a dependency of `panel`, so the
+default `doit` run does not call OpenAI or incur API cost. If
+`OPENAI_API_KEY` is unset the script prints a notice and exits cleanly.
+
+### Required environment variables
+
+- `WRDS_USERNAME`, `WRDS_PASSWORD` — for SFTP downloads of EDGAR text via
+  `/wrds/sec/warchives` and `/wrds/sec/wrds_clean_filings`.
+- `OPENAI_API_KEY` — only for the optional embedding stage.
+- `USE_CACHE` (default `true`) — skip re-downloading files already on disk.
+
+### Ticker universe
+
+Edit `TICKERS` in `src/settings.py`. The dict maps ticker → CIK (zero-padded
+to 10 digits is fine either way; `cik_for()` zero-pads). Registered
+defaults: `{"AAPL": "0000320193", "MSFT": "0000789019", "JPM": "0000019617"}`.
+`DEFAULT_TICKERS` (the set used when callers don't pass an explicit list)
+is intentionally narrow — currently `["AAPL"]` — so a default run produces
+the same single-ticker artifact teammates' other pulls have already
+shipped. Expand `DEFAULT_TICKERS` once the team is ready for multi-ticker
+joining.
+
+### Output panel columns
+
+`_data/sec_10q_monthly_panel.parquet` (long format, one row per `(month-end, ticker)`):
+
+| Column | Source |
+|---|---|
+| `date`, `ticker` | Primary key. |
+| `filing_date` | SEC filing date — point-in-time availability. |
+| `report_period` | Fiscal quarter end. |
+| `accession_number`, `sec_url`, `extraction_status`, `feature_source` | Trace metadata. |
+| `10q_sentiment`, `10q_positive_rate`, `10q_negative_rate` | LM dictionary (signed + raw rates). |
+| `10q_uncertainty`, `10q_litigious`, `10q_constraining`, `10q_word_count` | Other LM categories + length. |
+| `10q_cosine_vs_previous`, `10q_change_vs_previous` | Bag-of-words drift vs previous filing. |
+| `10q_embedding_cosine_vs_previous`, `10q_embedding_change_vs_previous` | Semantic drift (present only when the embed stage has run). |
+
+### Point-in-time guarantee
+
+The panel builder uses
+`pd.merge_asof(..., direction="backward", by="ticker")` on `filing_date`,
+and `build_10q_monthly_panel.py` raises `RuntimeError` if any row would
+carry a filing whose `filing_date > date`. The regression test
+`src/test_10q_point_in_time.py` re-asserts the invariant on the cached
+features.
+
