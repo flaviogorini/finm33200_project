@@ -64,3 +64,4 @@ transformers>=4.40.0
 beautifulsoup4
 lxml
 faiss-cpu
+edgartools

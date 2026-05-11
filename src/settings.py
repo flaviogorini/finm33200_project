@@ -283,6 +283,13 @@ SEC_10Q_END_DATE = "2025-12-31"
 WRDS_USERNAME = _config("WRDS_USERNAME", default=None)
 WRDS_PASSWORD = _config("WRDS_PASSWORD", default=None)
 OPENAI_API_KEY = _config("OPENAI_API_KEY", default=None)
+# SEC mandates a contact identifier in every EDGAR HTTP request's
+# User-Agent header. Default is a sensible fallback; users can override
+# in .env if they fork. Pure HTTP — no auth, no SFTP, no SSH.
+SEC_EDGAR_USER_AGENT = _config(
+    "SEC_EDGAR_USER_AGENT",
+    default="finm33200_project amywangyx@u.northwestern.edu",
+)
 USE_CACHE = _config(
     "USE_CACHE",
     default=True,
