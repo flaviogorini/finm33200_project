@@ -42,6 +42,22 @@ CONSENSUS = "features_consensus_monthly.parquet"
 SENTIMENT = "features_sentiment_monthly.parquet"
 MACRO = "features_macro_monthly.parquet"
 RETURNS = "labels_returns_monthly.parquet"
+SEC_10Q = "sec_10q_monthly_panel.parquet"
+
+# 10-Q panel ships metadata cols alongside features; we only want the features.
+SEC_10Q_FEATURE_COLS = (
+    "10q_sentiment",
+    "10q_positive_rate",
+    "10q_negative_rate",
+    "10q_uncertainty",
+    "10q_litigious",
+    "10q_constraining",
+    "10q_word_count",
+    "10q_cosine_vs_previous",
+    "10q_change_vs_previous",
+    "10q_embedding_cosine_vs_previous",
+    "10q_embedding_change_vs_previous",
+)
 
 # Columns considered LABELS, not features. Excluded from no-lookahead checks
 # of "feature columns" but kept in the panel so the modelling layer can split
@@ -84,6 +100,17 @@ def build(data_dir: Path = DATA_DIR) -> pd.DataFrame:
             f"  note: {SENTIMENT} not found — sentiment columns will be absent. "
             f"Run embed_transcripts → score_transcript_sentiment → build_sentiment_features."
         )
+
+    sec10q = _read_optional(SEC_10Q, data_dir)
+    if sec10q is not None:
+        keep = ["date", "ticker"] + [c for c in SEC_10Q_FEATURE_COLS if c in sec10q.columns]
+        panel = panel.merge(sec10q[keep], on=["date", "ticker"], how="left")
+    else:
+        print(
+            f"  note: {SEC_10Q} not found — 10-Q text columns will be absent. "
+            f"Run `doit pull:sec_10q_filings && doit process_10q` (needs WRDS_PASSWORD)."
+        )
+
     panel = panel.merge(macro, on="date", how="left")
     panel = panel.merge(rets, on=["date", "ticker"], how="left")
 

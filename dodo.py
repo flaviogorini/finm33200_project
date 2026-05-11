@@ -326,6 +326,30 @@ def task_build_panel():
     }
 
 
+def task_predict_returns():
+    """CKX-style return-prediction model on the unified panel.
+
+    Runs three feature variants (V1: pooled, V2: AAPL+sentiment,
+    V3: AAPL+sentiment+10Q) through walk-forward CV with Ridge + GBR.
+    V3 auto-skips if the 10-Q panel hasn't been built.
+    """
+    return {
+        "actions": ["python ./src/predict_returns_ckx.py"],
+        "file_dep": [
+            "./src/predict_returns_ckx.py",
+            "./src/build_panel.py",
+            str(Path(DATA_DIR) / "panel_monthly.parquet"),
+        ],
+        "targets": [
+            OUTPUT_DIR / "ckx_predictions.parquet",
+            OUTPUT_DIR / "ckx_metrics.json",
+            OUTPUT_DIR / "ckx_portfolio.parquet",
+        ],
+        "clean": True,
+        "verbosity": 2,
+    }
+
+
 def task_forecast_chronos2():
     """Zero-shot 4Q forecast of revenue + net_income for AAPL with Chronos-2."""
     return {
