@@ -52,3 +52,10 @@ wrds>=3.2.0
 --extra-index-url https://blpapi.bloomberg.com/repository/releases/python/simple/
 blpapi
 blp
+
+# LLM / time-series forecasting
+openai>=1.50.0
+tiktoken>=0.7.0
+chronos-forecasting
+torch>=2.2.0
+transformers>=4.40.0

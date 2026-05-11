@@ -145,6 +145,125 @@ def task_pull():
     }
 
 
+def task_build_features():
+    """Build per-source monthly feature parquets from the manual Bloomberg pulls."""
+    yield {
+        "name": "fundamentals",
+        "doc": "PIT daily Bloomberg → monthly EOM fundamentals",
+        "actions": ["python ./src/build_fundamentals_features.py"],
+        "file_dep": [
+            "./src/build_fundamentals_features.py",
+            str(Path(DATA_DIR) / "US_Companies_Hist_Data.parquet"),
+        ],
+        "targets": [DATA_DIR / "features_fundamentals_monthly.parquet"],
+        "clean": True,
+    }
+    yield {
+        "name": "consensus",
+        "doc": "Bloomberg BEST_* consensus → monthly EOM",
+        "actions": ["python ./src/build_consensus_features.py"],
+        "file_dep": [
+            "./src/build_consensus_features.py",
+            str(Path(DATA_DIR) / "US_Companies_Forecast.parquet"),
+        ],
+        "targets": [DATA_DIR / "features_consensus_monthly.parquet"],
+        "clean": True,
+    }
+    yield {
+        "name": "macro",
+        "doc": "Bloomberg macro → wide monthly EOM (VIX, treasuries, …)",
+        "actions": ["python ./src/build_macro_features.py"],
+        "file_dep": [
+            "./src/build_macro_features.py",
+            str(Path(DATA_DIR) / "Macro_Data_US.parquet"),
+        ],
+        "targets": [DATA_DIR / "features_macro_monthly.parquet"],
+        "clean": True,
+    }
+    yield {
+        "name": "returns",
+        "doc": "Monthly trailing + forward return labels from PX_LAST",
+        "actions": ["python ./src/build_return_labels.py"],
+        "file_dep": [
+            "./src/build_return_labels.py",
+            str(Path(DATA_DIR) / "US_Companies_Hist_Data.parquet"),
+        ],
+        "targets": [DATA_DIR / "labels_returns_monthly.parquet"],
+        "clean": True,
+    }
+
+
+def task_build_sentiment():
+    """Embed transcripts, score sentiment, roll up to monthly carry-forward.
+
+    Use SYNTHETIC=1 in env to skip OpenAI calls (random unit vectors).
+    """
+    synth = "--synthetic" if environ.get("SYNTHETIC") else ""
+    yield {
+        "name": "embed",
+        "doc": "Chunk + embed transcript components",
+        "actions": [f"python ./src/embed_transcripts.py {synth}".strip()],
+        "file_dep": [
+            "./src/embed_transcripts.py",
+            str(Path(DATA_DIR) / "transcripts" / "AAPL" / "aapl_transcript_components.csv"),
+        ],
+        "targets": [DATA_DIR / "embeddings_transcripts.parquet"],
+        "clean": True,
+    }
+    yield {
+        "name": "score",
+        "doc": "Cosine-vs-anchor sentiment scoring",
+        "actions": [f"python ./src/score_transcript_sentiment.py {synth}".strip()],
+        "file_dep": [
+            "./src/score_transcript_sentiment.py",
+            str(Path(DATA_DIR) / "embeddings_transcripts.parquet"),
+        ],
+        "targets": [DATA_DIR / "sentiment_transcripts.parquet"],
+        "clean": True,
+    }
+    yield {
+        "name": "monthly",
+        "doc": "Carry per-call sentiment forward to monthly EOM",
+        "actions": ["python ./src/build_sentiment_features.py"],
+        "file_dep": [
+            "./src/build_sentiment_features.py",
+            str(Path(DATA_DIR) / "sentiment_transcripts.parquet"),
+        ],
+        "targets": [DATA_DIR / "features_sentiment_monthly.parquet"],
+        "clean": True,
+    }
+
+
+def task_build_panel():
+    """Join all monthly feature parquets into the unified (date, ticker) panel."""
+    return {
+        "actions": ["python ./src/build_panel.py"],
+        "file_dep": [
+            "./src/build_panel.py",
+            str(Path(DATA_DIR) / "features_fundamentals_monthly.parquet"),
+            str(Path(DATA_DIR) / "features_consensus_monthly.parquet"),
+            str(Path(DATA_DIR) / "features_macro_monthly.parquet"),
+            str(Path(DATA_DIR) / "labels_returns_monthly.parquet"),
+        ],
+        "targets": [DATA_DIR / "panel_monthly.parquet"],
+        "clean": True,
+    }
+
+
+def task_forecast_chronos2():
+    """Zero-shot 4Q forecast of revenue + net_income for AAPL with Chronos-2."""
+    return {
+        "actions": ["python ./src/forecast_chronos2.py AAPL"],
+        "file_dep": [
+            "./src/forecast_chronos2.py",
+            "./src/build_panel.py",
+            str(Path(DATA_DIR) / "panel_monthly.parquet"),
+        ],
+        "uptodate": [False],  # forecast as_of changes; always re-run
+        "verbosity": 2,
+    }
+
+
 def task_summary_stats():
     """Generate summary statistics tables"""
     file_dep = ["./src/example_table.py"]
