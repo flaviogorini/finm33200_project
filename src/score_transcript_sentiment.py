@@ -147,7 +147,7 @@ def main() -> None:
     scored = scored.sort_values(["ticker", "event_date"]).reset_index(drop=True)
 
     out = write(scored)
-    print(f"Wrote {len(scored)} per-call sentiment rows → {out}")
+    print(f"Wrote {len(scored)} per-call sentiment rows -> {out}")
     print(scored.head().to_string(index=False))
 
 

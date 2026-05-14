@@ -237,7 +237,7 @@ def main() -> None:
     chunks = pd.concat(all_chunks, ignore_index=True)
     embedded = embed_chunks(chunks, synthetic=args.synthetic)
     out = write(embedded)
-    print(f"Wrote {len(embedded):,} chunk embeddings → {out}")
+    print(f"Wrote {len(embedded):,} chunk embeddings -> {out}")
 
 
 if __name__ == "__main__":

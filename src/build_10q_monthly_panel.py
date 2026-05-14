@@ -93,7 +93,7 @@ def build_monthly_panel(
     panel.to_parquet(PANEL_PATH, index=False)
     print(
         f"Wrote {PANEL_PATH}  ({len(panel)} rows: "
-        f"{len(months)} months × {len(tickers)} tickers)"
+        f"{len(months)} months x {len(tickers)} tickers)"
     )
     return panel
 

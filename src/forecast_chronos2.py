@@ -173,7 +173,7 @@ def main() -> None:
             continue
         path = OUTPUT_DIR / f"chronos2_forecast_{ticker}_{as_of.strftime('%Y%m%d')}.parquet"
         out.to_parquet(path, index=False)
-        print(f"  {ticker}: {len(out)} forecast rows → {path}")
+        print(f"  {ticker}: {len(out)} forecast rows -> {path}")
         print(out.to_string(index=False))
 
 

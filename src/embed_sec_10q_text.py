@@ -157,7 +157,7 @@ def embed_one_ticker(client, ticker: str, ticker_idx: pd.DataFrame) -> pd.DataFr
             "n_chunks": len(chunks),
             "vector": pooled.astype(np.float32).tolist(),
         })
-        print(f"  {row['accession_number']}: {len(chunks)} chunks → pooled vector")
+        print(f"  {row['accession_number']}: {len(chunks)} chunks -> pooled vector")
 
     if not filing_rows:
         return pd.DataFrame()

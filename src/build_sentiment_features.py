@@ -103,9 +103,9 @@ def write(panel: pd.DataFrame, data_dir: Path = DATA_DIR) -> Path:
 def main() -> None:
     panel = build()
     out = write(panel)
-    print(f"Wrote {len(panel):,} monthly sentiment rows → {out}")
+    print(f"Wrote {len(panel):,} monthly sentiment rows -> {out}")
     print(f"Tickers ({panel['ticker'].nunique()}):", sorted(panel["ticker"].unique()))
-    print(f"Date range: {panel['date'].min().date()} → {panel['date'].max().date()}")
+    print(f"Date range: {panel['date'].min().date()} -> {panel['date'].max().date()}")
     print(panel.head().to_string(index=False))
 
 

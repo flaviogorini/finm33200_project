@@ -259,18 +259,27 @@ def create_directories():
 ########################################################
 
 # Ticker -> CIK map for the 10-Q pipeline. The CIK is the SEC Central
-# Index Key, used for filing lookups. Add to this dict (or to a runtime
-# ticker_cik_map.csv) to expand the universe.
+# Index Key, used for filing lookups. The 13 tickers below mirror the
+# Bloomberg manual-data universe in _data/US_Companies_Hist_Data.parquet,
+# so V1/V2/V3 train on the same row set. CIKs resolved from
+# https://www.sec.gov/files/company_tickers.json.
 TICKERS: dict[str, str] = {
     "AAPL": "0000320193",
-    "MSFT": "0000789019",
+    "AMZN": "0001018724",
+    "BA": "0000012927",
+    "CVX": "0000093410",
+    "GS": "0000886982",
+    "HD": "0000354950",
+    "IBM": "0000051143",
     "JPM": "0000019617",
+    "KO": "0000021344",
+    "MSFT": "0000789019",
+    "NKE": "0000320187",
+    "NVDA": "0001045810",
+    "VZ": "0000732712",
 }
 
-# Default to AAPL only to match what teammates have already pulled. Expand
-# (e.g. ["AAPL", "MSFT", "JPM"]) when the rest of the team is ready to
-# join multi-ticker 10-Q features into the combined panel.
-DEFAULT_TICKERS: list[str] = ["AAPL"]
+DEFAULT_TICKERS: list[str] = list(TICKERS.keys())
 
 SEC_10Q_DIR = config("DATA_DIR") / "sec_10q"
 SEC_10Q_META_DIR = SEC_10Q_DIR / "_meta"

@@ -98,7 +98,7 @@ def build(data_dir: Path = DATA_DIR) -> pd.DataFrame:
     else:
         print(
             f"  note: {SENTIMENT} not found — sentiment columns will be absent. "
-            f"Run embed_transcripts → score_transcript_sentiment → build_sentiment_features."
+            f"Run embed_transcripts -> score_transcript_sentiment -> build_sentiment_features."
         )
 
     sec10q = _read_optional(SEC_10Q, data_dir)
@@ -170,9 +170,9 @@ def main() -> None:
     panel = build()
     integrity_checks(panel)
     out = write(panel)
-    print(f"Wrote panel: {len(panel):,} rows × {len(panel.columns)} cols → {out}")
+    print(f"Wrote panel: {len(panel):,} rows x {len(panel.columns)} cols -> {out}")
     print(f"Tickers ({panel['ticker'].nunique()}):", sorted(panel["ticker"].unique()))
-    print(f"Date range: {panel['date'].min().date()} → {panel['date'].max().date()}")
+    print(f"Date range: {panel['date'].min().date()} -> {panel['date'].max().date()}")
     print(f"Columns: {list(panel.columns)}")
 
 
