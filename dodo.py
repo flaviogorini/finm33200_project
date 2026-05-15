@@ -360,6 +360,79 @@ def task_forecast_chronos2():
     }
 
 
+def task_forecast():
+    """Return-forecasting experiments (slice A: generic stock, slice B: US-company factors)."""
+    # slice A — single-stock baselines + Chronos2 (no covariates)
+    yield {
+        "name": "stock_baseline",
+        "doc": "Baseline (mean/AR1/ARIMA/zero) 1-step return forecasts for a single ticker",
+        "actions": ["python ./src/stock_baselines.py --ticker AAPL"],
+        "targets": [DATA_DIR / "AAPL_Baseline_Forecasts.parquet"],
+        "file_dep": [
+            "./src/stock_baselines.py",
+            "./src/stock_returns.py",
+            "./src/forecast_utils.py",
+            DATA_DIR / "US_Companies_Hist_Data.parquet",
+        ],
+        "task_dep": ["pull:manual_companies"],
+        "clean": [],
+    }
+    yield {
+        "name": "stock_chronos",
+        "doc": "Chronos2 1-step return forecasts for a single ticker",
+        "actions": ["python ./src/stock_chronos.py --ticker AAPL"],
+        "targets": [DATA_DIR / "AAPL_Chronos_Forecasts.parquet"],
+        "file_dep": [
+            "./src/stock_chronos.py",
+            "./src/stock_returns.py",
+            "./src/forecast_utils.py",
+            DATA_DIR / "US_Companies_Hist_Data.parquet",
+        ],
+        "task_dep": ["pull:manual_companies"],
+        "clean": [],
+    }
+    # slice B — 13-ticker US-company analyst-factor experiment
+    yield {
+        "name": "us_panel",
+        "doc": "Build US-company monthly returns + analyst-factor panel",
+        "actions": ["python ./src/us_company_factors.py"],
+        "targets": [DATA_DIR / "US_Company_Panel.parquet"],
+        "file_dep": [
+            "./src/us_company_factors.py",
+            DATA_DIR / "US_Companies_Forecast.parquet",
+            DATA_DIR / "US_Companies_Hist_Data.parquet",
+        ],
+        "task_dep": ["pull:manual_companies"],
+        "clean": [],
+    }
+    yield {
+        "name": "us_regression",
+        "doc": "Per-ticker 3-factor regressions of monthly US returns",
+        "actions": ["python ./src/us_company_forecasts.py --only regression"],
+        "targets": [DATA_DIR / "US_Regression_Forecasts.parquet"],
+        "file_dep": [
+            "./src/us_company_forecasts.py",
+            "./src/forecast_utils.py",
+            "./src/us_company_factors.py",
+            DATA_DIR / "US_Company_Panel.parquet",
+        ],
+        "clean": [],
+    }
+    yield {
+        "name": "us_chronos",
+        "doc": "Chronos2 monthly forecasts of US returns with factor covariates",
+        "actions": ["python ./src/us_company_forecasts.py --only chronos"],
+        "targets": [DATA_DIR / "US_Chronos_Forecasts.parquet"],
+        "file_dep": [
+            "./src/us_company_forecasts.py",
+            "./src/forecast_utils.py",
+            "./src/us_company_factors.py",
+            DATA_DIR / "US_Company_Panel.parquet",
+        ],
+        "clean": [],
+    }
+
+
 notebook_tasks = {
     "01_example_notebook_interactive.ipynb.py": {
         "path": "./src/01_example_notebook_interactive.ipynb.py",
@@ -376,6 +449,22 @@ notebook_tasks = {
         "file_dep": [
             str(Path(OUTPUT_DIR) / "ckx_predictions.parquet"),
             str(Path(OUTPUT_DIR) / "ckx_metrics.json"),
+        ],
+        "targets": [],
+    },
+    "04_stock_return_evaluation.ipynb.py": {
+        "path": "./src/04_stock_return_evaluation.ipynb.py",
+        "file_dep": [
+            DATA_DIR / "AAPL_Baseline_Forecasts.parquet",
+            DATA_DIR / "AAPL_Chronos_Forecasts.parquet",
+        ],
+        "targets": [],
+    },
+    "05_us_company_evaluation.ipynb.py": {
+        "path": "./src/05_us_company_evaluation.ipynb.py",
+        "file_dep": [
+            DATA_DIR / "US_Regression_Forecasts.parquet",
+            DATA_DIR / "US_Chronos_Forecasts.parquet",
         ],
         "targets": [],
     },
