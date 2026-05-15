@@ -1,0 +1,120 @@
+{
+  "freeze_run_id": "nasdaq100_raw_frozen_20260513_155750",
+  "freeze_timestamp": "2026-05-13T15:57:50",
+  "raw_dataset_status": "frozen",
+  "universe_as_of_date": [
+    "2026-05-13"
+  ],
+  "universe_source": [
+    "https://en.wikipedia.org/wiki/Nasdaq-100; Parsed from the Wikipedia Nasdaq-100 current components table; cross-check note: Nasdaq official companies page observed during setup was marked Last updated 05/19/2025 and may lag current 2026 changes."
+  ],
+  "source_universe_file": "/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/_meta/nasdaq100_constituents.csv",
+  "source_company_mapping_file": "/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/_meta/ciq_company_mapping.csv",
+  "source_availability_file": "/Users/yujiadi/Desktop/finm33200_project/_output/transcripts/qc/transcript_availability_by_company.csv",
+  "raw_candidate_metadata_parquet_path": "_data/transcripts/raw/nasdaq100_raw_transcript_metadata.parquet",
+  "deduped_raw_metadata_parquet_path": "_data/transcripts/raw/nasdaq100_raw_transcript_metadata_deduped.parquet",
+  "raw_component_dataset_path": "_data/transcripts/raw/nasdaq100_raw_transcripts.parquet",
+  "deduped_raw_component_dataset_path": "_data/transcripts/raw/nasdaq100_raw_transcripts_deduped.parquet",
+  "unique_ticker_count": 101,
+  "unique_ciq_company_id_count": 100,
+  "raw_candidate_row_count": 20467,
+  "raw_component_row_count": 1396726,
+  "deduped_call_count": 6535,
+  "deduped_component_row_count": 452655,
+  "date_range": {
+    "start_date": "2005-01-01",
+    "end_date": "2025-12-31"
+  },
+  "earnings_call_filter": "keydeveventtypeid = 48 OR keydeveventtypename ILIKE '%Earnings%' OR headline ILIKE '%Earnings Call%'",
+  "transcript_text_table_used": "ciq.ciqtranscriptcomponent",
+  "metadata_table_used": "ciq.wrds_transcript_detail",
+  "component_person_table_used": "ciq.wrds_transcript_person",
+  "join_keys_used": {
+    "metadata_to_components": [
+      "transcript_id"
+    ],
+    "person_to_text": [
+      "transcriptcomponentid"
+    ]
+  },
+  "dedupe_rule_used": "presentation_final_then_collection_audited_proofed_edited_corrected_then_latest_creation_then_text_length",
+  "aapl_benchmark_result": {
+    "old_processed_call_count": 80,
+    "raw_candidate_rows": 246,
+    "unique_key_devid_count": 80,
+    "deduped_call_count": 80,
+    "aligned_with_old_pipeline": true
+  },
+  "goog_googl_handling": [
+    {
+      "ticker": "GOOG",
+      "ciq_company_id": 29096,
+      "is_duplicate_share_class": true,
+      "primary_ticker": "GOOGL",
+      "related_tickers": "GOOG|GOOGL"
+    },
+    {
+      "ticker": "GOOGL",
+      "ciq_company_id": 29096,
+      "is_duplicate_share_class": false,
+      "primary_ticker": "GOOGL",
+      "related_tickers": "GOOG|GOOGL"
+    }
+  ],
+  "axon_blank_component_rows_note": {
+    "known_issue": true,
+    "affected_ticker": "AXON",
+    "blank_component_rows": 2,
+    "conclusion": "Known issue accepted; does not require re-extraction. Cleaning QC should track/remove blank components from cleaned/LLM views while raw remains frozen."
+  },
+  "low_coverage_company_note": [
+    {
+      "ticker": "ABNB",
+      "ciq_company_id": 115705393,
+      "deduped_call_count": 20,
+      "years_covered": "2021|2022|2023|2024|2025"
+    },
+    {
+      "ticker": "APP",
+      "ciq_company_id": 231651802,
+      "deduped_call_count": 19,
+      "years_covered": "2021|2022|2023|2024|2025"
+    },
+    {
+      "ticker": "ARM",
+      "ciq_company_id": 667281196,
+      "deduped_call_count": 9,
+      "years_covered": "2023|2024|2025"
+    },
+    {
+      "ticker": "CEG",
+      "ciq_company_id": 3136719,
+      "deduped_call_count": 13,
+      "years_covered": "2022|2023|2024|2025"
+    },
+    {
+      "ticker": "DASH",
+      "ciq_company_id": 243735719,
+      "deduped_call_count": 20,
+      "years_covered": "2021|2022|2023|2024|2025"
+    },
+    {
+      "ticker": "GEHC",
+      "ciq_company_id": 1804385326,
+      "deduped_call_count": 12,
+      "years_covered": "2023|2024|2025"
+    },
+    {
+      "ticker": "SNDK",
+      "ciq_company_id": 1860586153,
+      "deduped_call_count": 3,
+      "years_covered": "2025"
+    }
+  ],
+  "known_limitations": [
+    "Current Nasdaq-100 constituents as of 2026-05-13; not historical constituents, so survivorship bias remains.",
+    "Short-history companies have naturally low coverage and should not be treated as extraction failures.",
+    "Raw candidates include multiple Capital IQ transcript versions per event; deduped raw dataset records preferred metadata-level version but raw candidates are retained for audit.",
+    "AXON has 2 blank component rows in deduped raw components; accepted as known issue for cleaning stage handling."
+  ]
+}

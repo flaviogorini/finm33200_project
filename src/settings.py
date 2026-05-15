@@ -249,5 +249,94 @@ def create_directories():
     config("OUTPUT_DIR").mkdir(parents=True, exist_ok=True)
 
 
+########################################################
+## SEC 10-Q signal pipeline configuration
+##
+## All names below are namespaced with SEC_10Q_ / TICKER_ /
+## `cik_for` / `*_dir` and only read through the existing
+## `config()` API. Adding or removing these does not affect
+## any other pipeline in this repo.
+########################################################
+
+# Ticker -> CIK map for the 10-Q pipeline. The CIK is the SEC Central
+# Index Key, used for filing lookups. Add to this dict (or to a runtime
+# ticker_cik_map.csv) to expand the universe.
+TICKERS: dict[str, str] = {
+    "AAPL": "0000320193",
+    "MSFT": "0000789019",
+    "JPM": "0000019617",
+}
+
+# Default to AAPL only to match what teammates have already pulled. Expand
+# (e.g. ["AAPL", "MSFT", "JPM"]) when the rest of the team is ready to
+# join multi-ticker 10-Q features into the combined panel.
+DEFAULT_TICKERS: list[str] = ["AAPL"]
+
+SEC_10Q_DIR = config("DATA_DIR") / "sec_10q"
+SEC_10Q_META_DIR = SEC_10Q_DIR / "_meta"
+SEC_10Q_START_DATE = "2005-01-01"
+SEC_10Q_END_DATE = "2025-12-31"
+
+# Use decouple directly (aliased as `_config` at the top of this file) so
+# unset variables resolve to `None`/`True` without going through the
+# top-level `config()` defaults pipeline.
+WRDS_USERNAME = _config("WRDS_USERNAME", default=None)
+WRDS_PASSWORD = _config("WRDS_PASSWORD", default=None)
+OPENAI_API_KEY = _config("OPENAI_API_KEY", default=None)
+# SEC mandates a contact identifier in every EDGAR HTTP request's
+# User-Agent header. Default is a sensible fallback; users can override
+# in .env if they fork. Pure HTTP — no auth, no SFTP, no SSH.
+SEC_EDGAR_USER_AGENT = _config(
+    "SEC_EDGAR_USER_AGENT",
+    default="finm33200_project amywangyx@u.northwestern.edu",
+)
+USE_CACHE = _config(
+    "USE_CACHE",
+    default=True,
+    cast=lambda v: str(v).lower() in ("1", "true", "yes", "y", "t"),
+)
+
+
+def cik_for(ticker: str) -> str:
+    """Return the zero-padded 10-digit CIK for a ticker."""
+    if ticker not in TICKERS:
+        raise KeyError(
+            f"No CIK registered for ticker {ticker!r}. "
+            f"Add it to settings.TICKERS."
+        )
+    return TICKERS[ticker].zfill(10)
+
+
+def ticker_dir(ticker: str) -> Path:
+    return SEC_10Q_DIR / ticker
+
+
+def raw_filings_dir(ticker: str) -> Path:
+    return ticker_dir(ticker) / "wrds_raw_filings"
+
+
+def clean_filings_dir(ticker: str) -> Path:
+    return ticker_dir(ticker) / "wrds_clean_filings"
+
+
+def processed_text_dir(ticker: str) -> Path:
+    return ticker_dir(ticker) / "processed_text"
+
+
+def create_sec_10q_dirs(tickers: list[str] | None = None) -> None:
+    """Create the per-ticker subtree under SEC_10Q_DIR."""
+    tickers = tickers or DEFAULT_TICKERS
+    for path in [SEC_10Q_DIR, SEC_10Q_META_DIR]:
+        path.mkdir(parents=True, exist_ok=True)
+    for t in tickers:
+        for path in [
+            ticker_dir(t),
+            raw_filings_dir(t),
+            clean_filings_dir(t),
+            processed_text_dir(t),
+        ]:
+            path.mkdir(parents=True, exist_ok=True)
+
+
 if __name__ == "__main__":
     create_directories()

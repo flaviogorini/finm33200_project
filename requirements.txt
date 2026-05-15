@@ -46,8 +46,6 @@ chartbook[all]>=0.0.14
 
 # WRDS data access
 wrds>=3.2.0
-jaydebeapi
-
 
 # Bloomberg data access
 # blpapi must be fetched from Bloomberg's private index (requires Bloomberg terminal)
@@ -55,4 +53,15 @@ jaydebeapi
 blpapi
 blp
 
+# LLM / time-series forecasting
+openai>=1.50.0
+tiktoken>=0.7.0
+chronos-forecasting
+torch>=2.2.0
+transformers>=4.40.0
 
+# 10-Q signals pipeline (SEC filings text → LM sentiment + embedding panel)
+beautifulsoup4
+lxml
+faiss-cpu
+edgartools

@@ -25,7 +25,7 @@ DATA_DIR = config("DATA_DIR")
 MANUAL_DATA_DIR = config("MANUAL_DATA_DIR")
 OUTPUT_DIR = config("OUTPUT_DIR")
 OS_TYPE = config("OS_TYPE")
-USER = config("USER")
+USER = environ.get("USER") or environ.get("USERNAME", "")  # USER on POSIX, USERNAME on Windows
 
 ## Helpers for handling Jupyter Notebook tasks
 environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
@@ -86,48 +86,277 @@ def task_config():
 
 
 def task_pull():
-    """Pull data from external sources"""
+    """Pull data from external sources.
+
+    Note: the cookiecutter `crsp_stock` and `crsp_compustat` yields were
+    removed; their parquet outputs aren't consumed by anything in the
+    current pipeline. The scripts (src/pull_CRSP_*.py) remain on disk
+    in case CRSP is reintroduced as a data source later.
+    """
     yield {
-        "name": "crsp_stock",
-        "doc": "Pull CRSP stock data from WRDS",
+        "name": "manual_macro",
+        "doc": "Parse manual Bloomberg macro Excel into parquet",
         "actions": [
             "python ./src/settings.py",
-            "python ./src/pull_CRSP_stock.py",
+            "python ./src/pull_manual_macro.py",
         ],
-        "targets": [DATA_DIR / "CRSP_monthly_stock.parquet"],
-        "file_dep": ["./src/settings.py", "./src/pull_CRSP_stock.py"],
+        "targets": [DATA_DIR / "Macro_Data_US.parquet"],
+        "file_dep": [
+            "./src/settings.py",
+            "./src/pull_manual_macro.py",
+            str(Path(MANUAL_DATA_DIR) / "Macro_Data_US.xlsx"),
+        ],
         "clean": [],
     }
     yield {
-        "name": "crsp_compustat",
-        "doc": "Pull CRSP Compustat data from WRDS",
+        "name": "manual_companies",
+        "doc": "Parse manual Bloomberg company prediction Excel into parquet",
         "actions": [
             "python ./src/settings.py",
-            "python ./src/pull_CRSP_Compustat.py",
+            "python ./src/pull_manual_companies.py",
         ],
-        "targets": [DATA_DIR / "CRSP_Compustat.parquet"],
-        "file_dep": ["./src/settings.py", "./src/pull_CRSP_compustat.py"],
+        "targets": [
+            DATA_DIR / "US_Companies_Forecast.parquet",
+            DATA_DIR / "US_Companies_Hist_Data.parquet",
+        ],
+        "file_dep": [
+            "./src/settings.py",
+            "./src/pull_manual_companies.py",
+            "./src/pull_manual_macro.py",
+            str(Path(MANUAL_DATA_DIR) / "US_Companies_Prediction_Data.xlsx"),
+        ],
+        "clean": [],
+    }
+    yield {
+        "name": "sec_10q_filings",
+        "doc": "Pull SEC 10-Q filings from SEC EDGAR via HTTPS (edgartools)",
+        "actions": [
+            "python ./src/settings.py",
+            "python ./src/pull_sec_10q_filings.py",
+        ],
+        "targets": [DATA_DIR / "sec_10q" / "_meta" / "filing_index.csv"],
+        "file_dep": [
+            "./src/settings.py",
+            "./src/pull_sec_10q_filings.py",
+        ],
         "clean": [],
     }
 
 
-def task_summary_stats():
-    """Generate summary statistics tables"""
-    file_dep = ["./src/example_table.py"]
-    file_output = [
-        "example_table.tex",
-        "pandas_to_latex_simple_table1.tex",
-    ]
-    targets = [OUTPUT_DIR / file for file in file_output]
+def task_process_10q():
+    """Process the cached 10-Q filings into a (date, ticker) monthly panel.
 
-    return {
-        "actions": [
-            "python ./src/example_table.py",
-            "python ./src/pandas_to_latex_demo.py",
+    Stages: clean → score → panel. The `embed` stage is intentionally NOT a
+    dependency of `panel`: it requires OPENAI_API_KEY and incurs API cost,
+    so it is opt-in via `doit process_10q:embed`. When the key is unset,
+    the embed script prints a notice and exits cleanly.
+    """
+    yield {
+        "name": "clean",
+        "doc": "Parse SGML/HTML 10-Q filings into per-section text files",
+        "actions": ["python ./src/clean_sec_10q_text.py"],
+        "targets": [DATA_DIR / "sec_10q" / "_meta" / "cleaned_index.csv"],
+        "file_dep": [
+            "./src/settings.py",
+            "./src/clean_sec_10q_text.py",
+            DATA_DIR / "sec_10q" / "_meta" / "filing_index.csv",
         ],
-        "targets": targets,
-        "file_dep": file_dep,
+        "clean": [],
+    }
+    yield {
+        "name": "score",
+        "doc": "Compute LM-dictionary sentiment + lexical drift features per filing",
+        "actions": ["python ./src/score_sec_10q_text.py"],
+        "targets": [DATA_DIR / "sec_10q" / "10q_features.parquet"],
+        "file_dep": [
+            "./src/settings.py",
+            "./src/score_sec_10q_text.py",
+            DATA_DIR / "sec_10q" / "_meta" / "cleaned_index.csv",
+        ],
+        "clean": [],
+    }
+    yield {
+        "name": "panel",
+        "doc": "Build point-in-time (date, ticker) monthly 10-Q panel",
+        "actions": ["python ./src/build_10q_monthly_panel.py"],
+        "targets": [DATA_DIR / "sec_10q_monthly_panel.parquet"],
+        "file_dep": [
+            "./src/settings.py",
+            "./src/build_10q_monthly_panel.py",
+            DATA_DIR / "sec_10q" / "10q_features.parquet",
+        ],
+        "clean": [],
+    }
+    yield {
+        "name": "embed",
+        "doc": (
+            "Optional: OpenAI embeddings + FAISS for semantic drift. "
+            "Run only when OPENAI_API_KEY is set; not a dependency of `panel`."
+        ),
+        "actions": ["python ./src/embed_sec_10q_text.py"],
+        "targets": [],
+        "file_dep": [
+            "./src/settings.py",
+            "./src/embed_sec_10q_text.py",
+            DATA_DIR / "sec_10q" / "_meta" / "cleaned_index.csv",
+        ],
+        "uptodate": [False],
+        "clean": [],
+    }
+
+
+def task_build_features():
+    """Build per-source monthly feature parquets from the manual Bloomberg pulls."""
+    yield {
+        "name": "fundamentals",
+        "doc": "PIT daily Bloomberg → monthly EOM fundamentals",
+        "actions": ["python ./src/build_fundamentals_features.py"],
+        "file_dep": [
+            "./src/build_fundamentals_features.py",
+            str(Path(DATA_DIR) / "US_Companies_Hist_Data.parquet"),
+        ],
+        "targets": [DATA_DIR / "features_fundamentals_monthly.parquet"],
         "clean": True,
+    }
+    yield {
+        "name": "consensus",
+        "doc": "Bloomberg BEST_* consensus → monthly EOM",
+        "actions": ["python ./src/build_consensus_features.py"],
+        "file_dep": [
+            "./src/build_consensus_features.py",
+            str(Path(DATA_DIR) / "US_Companies_Forecast.parquet"),
+        ],
+        "targets": [DATA_DIR / "features_consensus_monthly.parquet"],
+        "clean": True,
+    }
+    yield {
+        "name": "macro",
+        "doc": "Bloomberg macro → wide monthly EOM (VIX, treasuries, …)",
+        "actions": ["python ./src/build_macro_features.py"],
+        "file_dep": [
+            "./src/build_macro_features.py",
+            str(Path(DATA_DIR) / "Macro_Data_US.parquet"),
+        ],
+        "targets": [DATA_DIR / "features_macro_monthly.parquet"],
+        "clean": True,
+    }
+    yield {
+        "name": "returns",
+        "doc": "Monthly trailing + forward return labels from PX_LAST",
+        "actions": ["python ./src/build_return_labels.py"],
+        "file_dep": [
+            "./src/build_return_labels.py",
+            str(Path(DATA_DIR) / "US_Companies_Hist_Data.parquet"),
+        ],
+        "targets": [DATA_DIR / "labels_returns_monthly.parquet"],
+        "clean": True,
+    }
+
+
+def task_build_sentiment():
+    """Embed transcripts, score sentiment, roll up to monthly carry-forward.
+
+    Use SYNTHETIC=1 in env to skip OpenAI calls (random unit vectors).
+    """
+    synth = "--synthetic" if environ.get("SYNTHETIC") else ""
+    yield {
+        "name": "embed",
+        "doc": "Chunk + embed transcript components",
+        "actions": [f"python ./src/embed_transcripts.py {synth}".strip()],
+        "file_dep": [
+            "./src/embed_transcripts.py",
+            str(Path(DATA_DIR) / "transcripts" / "AAPL" / "aapl_transcript_components.csv"),
+        ],
+        "targets": [DATA_DIR / "embeddings_transcripts.parquet"],
+        "clean": True,
+    }
+    yield {
+        "name": "score",
+        "doc": "Cosine-vs-anchor sentiment scoring",
+        "actions": [f"python ./src/score_transcript_sentiment.py {synth}".strip()],
+        "file_dep": [
+            "./src/score_transcript_sentiment.py",
+            str(Path(DATA_DIR) / "embeddings_transcripts.parquet"),
+        ],
+        "targets": [DATA_DIR / "sentiment_transcripts.parquet"],
+        "clean": True,
+    }
+    yield {
+        "name": "monthly",
+        "doc": "Carry per-call sentiment forward to monthly EOM",
+        "actions": ["python ./src/build_sentiment_features.py"],
+        "file_dep": [
+            "./src/build_sentiment_features.py",
+            str(Path(DATA_DIR) / "sentiment_transcripts.parquet"),
+        ],
+        "targets": [DATA_DIR / "features_sentiment_monthly.parquet"],
+        "clean": True,
+    }
+
+
+def task_build_panel():
+    """Join all monthly feature parquets into the unified (date, ticker) panel."""
+    return {
+        "actions": ["python ./src/build_panel.py"],
+        "file_dep": [
+            "./src/build_panel.py",
+            str(Path(DATA_DIR) / "features_fundamentals_monthly.parquet"),
+            str(Path(DATA_DIR) / "features_consensus_monthly.parquet"),
+            str(Path(DATA_DIR) / "features_macro_monthly.parquet"),
+            str(Path(DATA_DIR) / "labels_returns_monthly.parquet"),
+        ],
+        "targets": [DATA_DIR / "panel_monthly.parquet"],
+        "clean": True,
+    }
+
+
+def task_predict_returns():
+    """CKX-style return-prediction model on the unified panel.
+
+    Runs three feature variants (V1: pooled, V2: AAPL+sentiment,
+    V3: AAPL+sentiment+10Q) through walk-forward CV with Ridge + GBR.
+    V3 auto-skips if the 10-Q panel hasn't been built.
+    """
+    return {
+        "actions": ["python ./src/predict_returns_ckx.py"],
+        "file_dep": [
+            "./src/predict_returns_ckx.py",
+            "./src/build_panel.py",
+            str(Path(DATA_DIR) / "panel_monthly.parquet"),
+        ],
+        "targets": [
+            OUTPUT_DIR / "ckx_predictions.parquet",
+            OUTPUT_DIR / "ckx_metrics.json",
+            OUTPUT_DIR / "ckx_portfolio.parquet",
+        ],
+        "clean": True,
+        "verbosity": 2,
+    }
+
+
+def _clean_chronos2_outputs():
+    """`doit clean forecast_chronos2` removes all chronos2_forecast_* artifacts.
+
+    The forecast filename is parameterised by `as_of`, so we can't list a
+    fixed `targets` — glob and unlink instead.
+    """
+    for pattern in ("chronos2_forecast_*.parquet", "chronos2_forecast_*.png"):
+        for p in Path(OUTPUT_DIR).glob(pattern):
+            p.unlink(missing_ok=True)
+
+
+def task_forecast_chronos2():
+    """Zero-shot 4Q forecast of revenue + net_income for AAPL with Chronos-2."""
+    return {
+        "actions": ["python ./src/forecast_chronos2.py AAPL"],
+        "file_dep": [
+            "./src/forecast_chronos2.py",
+            "./src/build_panel.py",
+            str(Path(DATA_DIR) / "panel_monthly.parquet"),
+        ],
+        "uptodate": [False],  # forecast as_of changes; always re-run
+        "verbosity": 2,
+        "clean": [_clean_chronos2_outputs],
     }
 
 
@@ -135,6 +364,19 @@ notebook_tasks = {
     "01_example_notebook_interactive.ipynb.py": {
         "path": "./src/01_example_notebook_interactive.ipynb.py",
         "file_dep": [],
+        "targets": [],
+    },
+    "02_aapl_panel_chronos2_demo.ipynb.py": {
+        "path": "./src/02_aapl_panel_chronos2_demo.ipynb.py",
+        "file_dep": [str(Path(DATA_DIR) / "panel_monthly.parquet")],
+        "targets": [],
+    },
+    "03_ckx_return_prediction.ipynb.py": {
+        "path": "./src/03_ckx_return_prediction.ipynb.py",
+        "file_dep": [
+            str(Path(OUTPUT_DIR) / "ckx_predictions.parquet"),
+            str(Path(OUTPUT_DIR) / "ckx_metrics.json"),
+        ],
         "targets": [],
     },
 }
@@ -172,47 +414,14 @@ def task_run_notebooks():
 # fmt: on
 
 ###############################################################
-## Task below is for LaTeX compilation
+## Cookiecutter LaTeX templates removed from the workflow
+##
+## task_compile_latex_docs() used to live here. It compiled four
+## example .tex / Beamer templates from ./reports/ via 8 sequential
+## XeLaTeX invocations — slow on first run (font/package fetch) and
+## not consumed by anything in the real pipeline. Templates remain
+## on disk under ./reports/ for manual `latexmk` use if needed.
 ###############################################################
-
-
-def task_compile_latex_docs():
-    """Compile the LaTeX documents to PDFs"""
-    file_dep = [
-        "./reports/report_example.tex",
-        "./reports/my_article_header.sty",
-        "./reports/slides_example.tex",
-        "./reports/my_beamer_header.sty",
-        "./reports/my_common_header.sty",
-        "./reports/report_simple_example.tex",
-        "./reports/slides_simple_example.tex",
-        "./src/example_plot.py",
-        "./src/example_table.py",
-    ]
-    targets = [
-        "./reports/report_example.pdf",
-        "./reports/slides_example.pdf",
-        "./reports/report_simple_example.pdf",
-        "./reports/slides_simple_example.pdf",
-    ]
-
-    return {
-        "actions": [
-            # My custom LaTeX templates
-            "latexmk -xelatex -halt-on-error -cd ./reports/report_example.tex",  # Compile
-            "latexmk -xelatex -halt-on-error -c -cd ./reports/report_example.tex",  # Clean
-            "latexmk -xelatex -halt-on-error -cd ./reports/slides_example.tex",  # Compile
-            "latexmk -xelatex -halt-on-error -c -cd ./reports/slides_example.tex",  # Clean
-            # Simple templates based on small adjustments to Overleaf templates
-            "latexmk -xelatex -halt-on-error -cd ./reports/report_simple_example.tex",  # Compile
-            "latexmk -xelatex -halt-on-error -c -cd ./reports/report_simple_example.tex",  # Clean
-            "latexmk -xelatex -halt-on-error -cd ./reports/slides_simple_example.tex",  # Compile
-            "latexmk -xelatex -halt-on-error -c -cd ./reports/slides_simple_example.tex",  # Clean
-        ],
-        "targets": targets,
-        "file_dep": file_dep,
-        "clean": True,
-    }
 
 sphinx_targets = [
     "./docs/index.html",
