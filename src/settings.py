@@ -305,6 +305,14 @@ USE_CACHE = _config(
     cast=lambda v: str(v).lower() in ("1", "true", "yes", "y", "t"),
 )
 
+# Generative-AI 10-Q analysis layer (analyze_sec_10q_llm.py). Opt-in: the
+# script no-ops when OPENAI_API_KEY is unset. SEC_10Q_LLM_START_YEAR bounds
+# API cost by only analyzing filings from that year onward (matches the CV
+# start year in predict_returns_ckx.py).
+SEC_10Q_LLM_MODEL = _config("SEC_10Q_LLM_MODEL", default="gpt-4o-mini")
+SEC_10Q_LLM_START_YEAR = _config("SEC_10Q_LLM_START_YEAR", default=2014, cast=int)
+SEC_10Q_LLM_CACHE_DIR = SEC_10Q_DIR / "_llm_cache"
+
 
 def cik_for(ticker: str) -> str:
     """Return the zero-padded 10-digit CIK for a ticker."""

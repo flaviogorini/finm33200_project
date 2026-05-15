@@ -45,6 +45,7 @@ RETURNS = "labels_returns_monthly.parquet"
 SEC_10Q = "sec_10q_monthly_panel.parquet"
 
 # 10-Q panel ships metadata cols alongside features; we only want the features.
+# This tuple is the NUMERIC modeling list — keep it numeric-only.
 SEC_10Q_FEATURE_COLS = (
     "10q_sentiment",
     "10q_positive_rate",
@@ -57,7 +58,21 @@ SEC_10Q_FEATURE_COLS = (
     "10q_change_vs_previous",
     "10q_embedding_cosine_vs_previous",
     "10q_embedding_change_vs_previous",
+    # Generative-AI 10-Q analysis (analyze_sec_10q_llm.py); powers V4/V5.
+    "10q_ai_tone_score",
+    "10q_ai_risk_score",
+    "10q_ai_uncertainty_score",
+    "10q_ai_margin_pressure",
+    "10q_ai_liquidity_pressure",
+    "10q_ai_demand_outlook",
+    "10q_ai_disclosure_change_score",
+    "10q_ai_material_change_flag",
 )
+
+# AI summary + cited evidence are TEXT. They flow into the panel so the
+# Streamlit dashboard can show cited filing snippets, but they are NOT model
+# features — the modelling layer only ever reads numeric columns.
+AI_TEXT_COLS = ("10q_ai_summary", "10q_ai_evidence")
 
 # Columns considered LABELS, not features. Excluded from no-lookahead checks
 # of "feature columns" but kept in the panel so the modelling layer can split
@@ -103,7 +118,11 @@ def build(data_dir: Path = DATA_DIR) -> pd.DataFrame:
 
     sec10q = _read_optional(SEC_10Q, data_dir)
     if sec10q is not None:
-        keep = ["date", "ticker"] + [c for c in SEC_10Q_FEATURE_COLS if c in sec10q.columns]
+        keep = (
+            ["date", "ticker"]
+            + [c for c in SEC_10Q_FEATURE_COLS if c in sec10q.columns]
+            + [c for c in AI_TEXT_COLS if c in sec10q.columns]
+        )
         panel = panel.merge(sec10q[keep], on=["date", "ticker"], how="left")
     else:
         print(

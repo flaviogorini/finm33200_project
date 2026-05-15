@@ -65,3 +65,6 @@ beautifulsoup4
 lxml
 faiss-cpu
 edgartools
+
+# Interactive results dashboard (streamlit run src/dashboard.py)
+streamlit>=1.30.0

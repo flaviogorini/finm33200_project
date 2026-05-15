@@ -101,6 +101,56 @@ def _predict_univariate(
     return pred[:, 0], pred[:, 1], pred[:, 2]
 
 
+def forecast(
+    ticker: str,
+    as_of: str | pd.Timestamp,
+    *,
+    panel: pd.DataFrame | None = None,
+    pipeline=None,
+    targets: list[str] | None = None,
+    horizon_q: int = DEFAULT_HORIZON_Q,
+    device: str = "cpu",
+) -> pd.DataFrame:
+    """Forecast revenue / net_income (and optionally EBITDA) for one ticker as of one date.
+
+    Wrapper around :func:`forecast_for_ticker` intended for callers that need
+    to invoke Chronos repeatedly (e.g. ``backtest_chronos2.py``). Passing a
+    pre-loaded ``panel`` and ``pipeline`` avoids reloading them on each call
+    — Chronos-2 model load is the dominant cost.
+
+    Args:
+        ticker: e.g. ``"AAPL"``. Must be present in the panel.
+        as_of: anchor date. Only data with quarter-end ``<= as_of`` is fed to
+            Chronos (PIT guard enforced inside ``forecast_for_ticker`` via
+            ``history[history.index <= as_of]``).
+        panel: monthly panel. If ``None``, loaded via :func:`load_panel`.
+        pipeline: ``Chronos2Pipeline`` instance. If ``None``, loaded fresh.
+        targets: list of target columns to forecast.
+            Defaults to :data:`DEFAULT_TARGETS`.
+        horizon_q: forecast horizon in quarters.
+        device: passed to the Chronos pipeline loader when ``pipeline is None``.
+
+    Returns:
+        Long DataFrame with one row per (target × horizon_q) — same schema as
+        the CLI output. Empty if the ticker has < 8 historical quarters.
+
+    Raises:
+        ValueError: if the ticker is not in the panel.
+    """
+    as_of_ts = pd.Timestamp(as_of)
+    if targets is None:
+        targets = DEFAULT_TARGETS
+    if panel is None:
+        panel = load_panel(DATA_DIR)
+    if pipeline is None:
+        pipeline = _load_chronos_pipeline(device)
+
+    if not (panel["ticker"] == ticker).any():
+        raise ValueError(f"ticker {ticker!r} not in panel")
+
+    return forecast_for_ticker(panel, pipeline, ticker, targets, as_of_ts, horizon_q)
+
+
 def forecast_for_ticker(
     panel: pd.DataFrame,
     pipeline,
@@ -167,7 +217,14 @@ def main() -> None:
             print(f"  skip {ticker}: not in panel")
             continue
         as_of = pd.Timestamp(args.as_of) if args.as_of else sub["date"].max()
-        out = forecast_for_ticker(panel, pipeline, ticker, args.targets, as_of, args.horizon)
+        out = forecast(
+            ticker,
+            as_of,
+            panel=panel,
+            pipeline=pipeline,
+            targets=args.targets,
+            horizon_q=args.horizon,
+        )
         if out.empty:
             print(f"  no forecasts produced for {ticker}")
             continue

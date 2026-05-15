@@ -1,8 +1,70 @@
-# finm33200_project
+# finm33200_project — Forecast-Spine Copilot
 
-## About this project
+FINM 33200 final project. A **forecast-spine copilot** for equity analysis.
+Two forecasts feed one decision output:
 
-Generative and agentic AI Final Project
+```
+Returns forecast (V0a → V5 ladder)         ──┐
+                                              ├──→ Decision digest ──→ honest evaluation
+Company-data forecast (Amazon Chronos-2)   ──┘    (one-shot, not agentic)
+```
+
+- **Returns forecast** ([src/predict_returns_ckx.py](src/predict_returns_ckx.py))
+  — five nested feature variants V0a → V5, evaluated on identical OOS rows.
+  Headline metrics: rank IC (Spearman) + AUC + portfolio Sharpe. R² is
+  reported but demoted (monthly-return R² is noise-bounded near zero).
+- **Company-data forecast** ([src/backtest_chronos2.py](src/backtest_chronos2.py))
+  — Amazon Chronos-2 zero-shot fundamentals forecast vs Bloomberg consensus
+  vs naive YoY, on a 5-ticker × 4-quarter backtest grid.
+- **Decision digest** ([src/generate_digest.py](src/generate_digest.py))
+  — one-shot LLM call that grounds both forecasts in cited 10-Q and
+  transcript chunks, emitting a structured `DigestSchema` response.
+- **Honest evaluation** ([src/eval_digest.py](src/eval_digest.py))
+  — three independent verifiers: citation_match, numeric_grounding (Fuentes
+  Extract pattern), direction_match against realized fwd_ret. Reported
+  separately, NOT combined into a triangular composite — see
+  [docs_src/project_overview/methodology.md](docs_src/project_overview/methodology.md)
+  for the reasoning.
+
+The full methodology, the "considered but deliberately not implemented" list
+of guest-lecture techniques, and the rubric mapping live in the
+[docs_src/](docs_src/) jupyter-book.
+
+## Quick demo
+
+After cleaning a venv and installing requirements (see
+[Prerequisites](#prerequisites)):
+
+```powershell
+doit predict_returns               # if not already current
+doit backtest_chronos2             # NEW; local, no API cost
+doit generate_digests              # NEW; ~$2 OpenAI cost, cached
+doit eval_digest                   # NEW; local
+streamlit run src/dashboard.py     # 5 tabs: forecast, ladder, AI timeline, snippets, portfolio
+```
+
+Then open the dashboard, pick a ticker on the "Ticker forecast" tab, look at
+the "Variant ladder" tab (rank IC / AUC lead bars), and inspect the cached
+digest JSONs under `_data/digest_cache/`.
+
+## Known limitations
+
+Reproduced from [_FOLLOW_UPS.md](_FOLLOW_UPS.md) so reviewers see them
+up-front:
+
+- **13-ticker cross-section is narrow.** Cross-sectional anomaly claims are
+  not supported. Results read as *"does feature X add predictive content
+  within this universe"* — not *"feature X works universally."*
+- **2014-2025 backtest is a strong-bull-market sample.** The V0a equal-weight
+  buy-and-hold benchmark is artificially tough; the long-short Sharpes for
+  V0b-V5 should be read against this caveat.
+- **Reported portfolio Sharpes are gross of transaction costs.** Add a flat
+  5–10 bps per turnover for a trading-realistic backtest.
+- **Hyperparameters are not tuned.** Values for Ridge and GBR are stated
+  explicitly in [src/predict_returns_ckx.py](src/predict_returns_ckx.py) to
+  forestall the "you tuned by hand" critique. An inner CV grid is the top
+  stretch goal.
+- **Survivorship bias.** All 13 tickers are current large-cap survivors.
 
 ## Quick Start
 
@@ -62,10 +124,19 @@ doit build_features            # parse Bloomberg Excels + 4 monthly feature parq
 doit build_sentiment           # embed AAPL transcripts + score + monthly carry-forward
 doit pull:sec_10q_filings      # (optional) pull AAPL 10-Q filings from SEC EDGAR
 doit process_10q               # (optional) clean + score + monthly 10-Q text panel
+doit process_10q:analyze       # (optional) generative-AI 10-Q analysis → V4/V5 (needs OPENAI_API_KEY)
 doit build_panel               # join everything → _data/panel_monthly.parquet
 doit forecast_chronos2         # 4Q forecast for AAPL → _output/chronos2_forecast_AAPL_*.parquet
 doit predict_returns           # CKX-style return classifier → _output/ckx_*.parquet
+doit dashboard                 # launch the Streamlit results dashboard
 ```
+
+`doit process_10q:analyze` runs `gpt-4o-mini` over each 10-Q to score how
+its disclosure changed versus the prior filing — this powers model variants
+V4/V5. It is opt-in (no-ops without `OPENAI_API_KEY`); re-run
+`doit process_10q:panel` and `doit build_panel` afterward so the AI columns
+reach the panel. Responses are cached under `_data/sec_10q/_llm_cache/`, so
+re-runs are free and reproducible.
 
 `doit build_sentiment` calls OpenAI by default. To skip OpenAI and use
 random unit vectors as a smoke test, prefix the command:
@@ -99,15 +170,20 @@ python src/build_panel.py
 # 5. Zero-shot Chronos-2 fundamentals forecast
 python src/forecast_chronos2.py AAPL --as-of 2024-09-30
 
-# 6. (Optional) 10-Q text features — adds 9 10q_* columns to the panel
+# 6. (Optional) 10-Q text features — adds 10q_* columns to the panel
 python src/pull_sec_10q_filings.py
 python src/clean_sec_10q_text.py
 python src/score_sec_10q_text.py
+python src/analyze_sec_10q_llm.py            # (optional) generative-AI 10-Q analysis → V4/V5
+#   pilot first:  python src/analyze_sec_10q_llm.py --tickers AAPL JPM KO
 python src/build_10q_monthly_panel.py
 python src/build_panel.py    # rebuild panel to include 10q_* columns
 
-# 7. CKX-style return-prediction model (V1 pooled, V2 +sentiment, V3 +10Q)
+# 7. CKX-style return-prediction model (V0a..V3, plus V4/V5 once analyze has run)
 python src/predict_returns_ckx.py
+
+# 8. (Optional) Interactive results dashboard
+streamlit run src/dashboard.py
 ```
 
 ### Outputs
@@ -283,16 +359,32 @@ other team feeds (earnings transcripts, ratios, macro) on `(date, ticker)`.
 ### Run order
 
 ```bash
-doit pull:sec_10q_filings      # WRDS SEC SFTP → _data/sec_10q/{TICKER}/wrds_*_filings/
+doit pull:sec_10q_filings      # SEC EDGAR HTTPS → _data/sec_10q/{TICKER}/wrds_*_filings/
 doit process_10q:clean         # → _data/sec_10q/{TICKER}/processed_text/*.txt
 doit process_10q:score         # LM-dictionary + lexical drift → 10q_features.parquet
 doit process_10q:panel         # merge_asof monthly grid → sec_10q_monthly_panel.parquet
 doit process_10q:embed         # OPTIONAL: OpenAI embeddings + FAISS (needs OPENAI_API_KEY)
+doit process_10q:analyze       # OPTIONAL: generative-AI 10-Q analysis → V4/V5 (needs OPENAI_API_KEY)
 ```
 
-The `embed` task is opt-in: it is **not** a dependency of `panel`, so the
-default `doit` run does not call OpenAI or incur API cost. If
-`OPENAI_API_KEY` is unset the script prints a notice and exits cleanly.
+The `embed` and `analyze` tasks are opt-in: neither is a dependency of
+`panel`, so the default `doit` run does not call OpenAI or incur API cost.
+If `OPENAI_API_KEY` is unset both scripts print a notice and exit cleanly.
+
+`analyze` (`src/analyze_sec_10q_llm.py`) is the **generative-AI** layer: it
+has `gpt-4o-mini` read each 10-Q's MD&A / risk / market-risk / controls /
+legal sections, compare them to the same ticker's previous filing, and emit
+structured numeric scores (`10q_ai_tone_score`, `10q_ai_risk_score`,
+`10q_ai_disclosure_change_score`, …) plus a short summary and cited evidence
+quotes. These columns power model variants V4 (AI replaces the LM lexicon)
+and V5 (LM + AI combined). The stage only analyzes filings from
+`SEC_10Q_LLM_START_YEAR` (default 2014) onward to bound API cost, and caches
+every response under `_data/sec_10q/_llm_cache/` keyed on
+`(accession, prev_accession, prompt_version)` — so re-runs make zero API
+calls and downstream builds are reproducible. After running `analyze`,
+re-run `process_10q:panel` and `build_panel` so the AI columns reach the
+unified panel. For a cheap pilot:
+`python src/analyze_sec_10q_llm.py --tickers AAPL JPM KO`.
 
 ### Required environment variables
 
@@ -303,8 +395,12 @@ default `doit` run does not call OpenAI or incur API cost. If
 - `WRDS_USERNAME` — NOT required for the 10-Q pipeline anymore. Only
   used by other workstreams in this project (transcripts, CRSP) that
   still hit WRDS PostgreSQL via `~/.pgpass`.
-- `OPENAI_API_KEY` — only for the optional embedding stage.
-- `USE_CACHE` (default `true`) — skip re-downloading files already on disk.
+- `OPENAI_API_KEY` — for the optional `embed` and `analyze` stages.
+- `SEC_10Q_LLM_MODEL` (default `gpt-4o-mini`) / `SEC_10Q_LLM_START_YEAR`
+  (default `2014`) — model and earliest filing year for the optional
+  generative-AI 10-Q `analyze` stage.
+- `USE_CACHE` (default `true`) — skip re-downloading files already on disk;
+  also gates reuse of the 10-Q LLM response cache.
 
 The 10-Q pipeline pulls filings directly from SEC EDGAR over HTTPS
 using [`edgartools`](https://github.com/dgunning/edgartools). No SSH
@@ -336,6 +432,10 @@ joining.
 | `10q_uncertainty`, `10q_litigious`, `10q_constraining`, `10q_word_count` | Other LM categories + length.                               |
 | `10q_cosine_vs_previous`, `10q_change_vs_previous`                       | Bag-of-words drift vs previous filing.                      |
 | `10q_embedding_cosine_vs_previous`, `10q_embedding_change_vs_previous`   | Semantic drift (present only when the embed stage has run). |
+| `10q_ai_tone_score`, `10q_ai_risk_score`, `10q_ai_uncertainty_score`     | Generative-AI scores (present only when the `analyze` stage has run). |
+| `10q_ai_margin_pressure`, `10q_ai_liquidity_pressure`, `10q_ai_demand_outlook` | Generative-AI structured judgments per filing.        |
+| `10q_ai_disclosure_change_score`, `10q_ai_material_change_flag`          | Generative-AI disclosure-change scores vs the prior filing. |
+| `10q_ai_summary`, `10q_ai_evidence`                                     | Generative-AI summary + cited quotes (text — dashboard only, never model features). |
 
 ### Point-in-time guarantee
 
@@ -344,4 +444,7 @@ The panel builder uses
 and `build_10q_monthly_panel.py` raises `RuntimeError` if any row would
 carry a filing whose `filing_date > date`. The regression test
 `src/test_10q_point_in_time.py` re-asserts the invariant on the cached
-features.
+features. The generative-AI `analyze` stage is point-in-time safe by the
+same construction: filings are processed in `(ticker, filing_date)` order
+and each one is only ever compared against a strictly-earlier filing, so
+the AI columns ride the same `merge_asof` and lookahead assert.

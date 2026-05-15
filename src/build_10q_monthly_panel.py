@@ -34,6 +34,16 @@ FEATURE_COLUMNS = [
     "10q_change_vs_previous",
     "10q_embedding_cosine_vs_previous",
     "10q_embedding_change_vs_previous",
+    # Generative-AI 10-Q analysis (analyze_sec_10q_llm.py). Numeric scores
+    # only; present after the optional `doit process_10q:analyze` stage.
+    "10q_ai_tone_score",
+    "10q_ai_risk_score",
+    "10q_ai_uncertainty_score",
+    "10q_ai_margin_pressure",
+    "10q_ai_liquidity_pressure",
+    "10q_ai_demand_outlook",
+    "10q_ai_disclosure_change_score",
+    "10q_ai_material_change_flag",
 ]
 
 PANEL_KEY_COLUMNS = [
@@ -45,10 +55,29 @@ PANEL_KEY_COLUMNS = [
     "sec_url",
     "extraction_status",
     "feature_source",
+    # AI summary + cited evidence are TEXT — carried for the dashboard, never
+    # used as model features (kept out of FEATURE_COLUMNS deliberately).
+    "10q_ai_summary",
+    "10q_ai_evidence",
 ]
 
 PANEL_PATH = DATA_DIR / "sec_10q_monthly_panel.parquet"
 FEATURES_PATH = SEC_10Q_DIR / "10q_features.parquet"
+AI_FEATURES_PATH = SEC_10Q_DIR / "10q_ai_features.parquet"
+
+# AI columns merged in from 10q_ai_features.parquet (numeric features + text).
+AI_MERGE_COLUMNS = [
+    "10q_ai_tone_score",
+    "10q_ai_risk_score",
+    "10q_ai_uncertainty_score",
+    "10q_ai_margin_pressure",
+    "10q_ai_liquidity_pressure",
+    "10q_ai_demand_outlook",
+    "10q_ai_disclosure_change_score",
+    "10q_ai_material_change_flag",
+    "10q_ai_summary",
+    "10q_ai_evidence",
+]
 
 
 def build_monthly_panel(
@@ -61,6 +90,26 @@ def build_monthly_panel(
     if "report_period" in features.columns:
         features["report_period"] = pd.to_datetime(features["report_period"], errors="coerce")
     features = features[features["ticker"].isin(tickers)].copy()
+
+    # Optional: merge the generative-AI 10-Q features on (ticker, accession).
+    # No-op when the `process_10q:analyze` stage has not been run. Merged
+    # BEFORE the merge_asof below so the AI columns ride the same
+    # point-in-time machinery and the lookahead assert covers them too.
+    if AI_FEATURES_PATH.exists():
+        ai = pd.read_parquet(AI_FEATURES_PATH)
+        ai_cols = [c for c in AI_MERGE_COLUMNS if c in ai.columns]
+        features = features.merge(
+            ai[["ticker", "accession_number", *ai_cols]],
+            on=["ticker", "accession_number"],
+            how="left",
+        )
+        print(f"  merged {len(ai_cols)} AI 10-Q columns from {AI_FEATURES_PATH.name}")
+    else:
+        print(
+            f"  note: {AI_FEATURES_PATH.name} not found — AI 10-Q columns absent. "
+            f"Run `doit process_10q:analyze` (needs OPENAI_API_KEY)."
+        )
+
     features = features.sort_values(["ticker", "filing_date"])
 
     months = pd.date_range(SEC_10Q_START_DATE, SEC_10Q_END_DATE, freq="ME")

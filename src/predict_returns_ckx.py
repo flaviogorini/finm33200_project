@@ -5,8 +5,8 @@ using expanding-window walk-forward CV with no in-sample data leak. Both
 horizons are reported side by side so the reader can see which conclusions
 are robust to the choice of target.
 
-Five variants, ALL trained on the same 13-ticker pooled cross-section and
-evaluated on identical test rows so that each step measures a clean
+The variant ladder, ALL trained on the same 13-ticker pooled cross-section
+and evaluated on identical test rows so that each step measures a clean
 incremental hypothesis:
 
     V0a — Zero forecast (predict 0). The "is anything > 0?" sanity check.
@@ -15,7 +15,15 @@ incremental hypothesis:
     V1  — V0b features + fundamentals (incl. YoY/QoQ growth) + Bloomberg
           consensus + macro. "Does fundamentals+macro add to momentum?"
     V2  — V1 + earnings-call sentiment. "Does call sentiment add?"
-    V3  — V2 + SEC 10-Q text features. "Does 10-Q disclosure text add?"
+    V3  — V2 + SEC 10-Q Loughran-McDonald lexicon features. "Does the 10-Q
+          dictionary signal add?"
+    V4  — V3 base + generative-AI 10-Q analysis only (LM lexicon dropped).
+          "Does an LLM reading the 10-Q beat the dictionary?"
+    V5  — V3 base + LM lexicon + generative-AI 10-Q analysis. "Do the
+          dictionary and the LLM complement each other?"
+
+V4/V5 auto-skip until `doit process_10q:analyze` has produced the
+generative-AI 10-Q columns; V3 auto-skips without the lexicon panel.
 
 Each non-V0a variant runs both Ridge and Gradient Boosting. Two heads per
 regressor: classification ``P(y > 0)`` (AUC, accuracy) + regression (OOS R²,
@@ -91,6 +99,16 @@ SEC_10Q_CORE_COLS = (
 # has been run (needs OPENAI_API_KEY).
 SEC_10Q_EMBED_COLS = (
     "10q_embedding_cosine_vs_previous", "10q_embedding_change_vs_previous",
+)
+# Generative-AI 10-Q analysis (analyze_sec_10q_llm.py): gpt-4o-mini reads each
+# filing and scores disclosure change vs the prior filing. Optional; activated
+# when `doit process_10q:analyze` has been run. NUMERIC ONLY — the companion
+# 10q_ai_summary / 10q_ai_evidence columns are text and never enter X.
+SEC_10Q_AI_COLS = (
+    "10q_ai_tone_score", "10q_ai_risk_score", "10q_ai_uncertainty_score",
+    "10q_ai_margin_pressure", "10q_ai_liquidity_pressure",
+    "10q_ai_demand_outlook", "10q_ai_disclosure_change_score",
+    "10q_ai_material_change_flag",
 )
 
 
@@ -178,6 +196,38 @@ def variants_for_panel(panel_columns: list[str]) -> list[Variant]:
         print(
             "  note: V3 skipped — 10-Q core columns not in panel. "
             "Run `doit pull:sec_10q_filings && doit process_10q` first."
+        )
+
+    # V4/V5 — generative-AI 10-Q analysis. V4 swaps the LM lexicon for the
+    # LLM features (tests "does generative AI beat the dictionary?"); V5
+    # stacks both (tests whether they complement). Both reuse the same V3
+    # base (V1 features + call sentiment) so the only thing that varies is
+    # the 10-Q text representation.
+    if all(c in panel_columns for c in SEC_10Q_AI_COLS):
+        sent_cols = SENTIMENT_COLS if all(c in panel_columns for c in SENTIMENT_COLS) else ()
+        v3_base = v1_features + sent_cols
+        out.append(
+            Variant(
+                name="v4",
+                description="V3 base + generative-AI 10-Q analysis only (LM lexicon dropped).",
+                features=v3_base + SEC_10Q_AI_COLS,
+                models=("ridge", "gbr"),
+            )
+        )
+        lm_cols = SEC_10Q_CORE_COLS if all(c in panel_columns for c in SEC_10Q_CORE_COLS) else ()
+        embed_extra = tuple(c for c in SEC_10Q_EMBED_COLS if c in panel_columns)
+        out.append(
+            Variant(
+                name="v5",
+                description="V3 base + LM 10-Q lexicon + generative-AI 10-Q analysis (combined).",
+                features=v3_base + lm_cols + embed_extra + SEC_10Q_AI_COLS,
+                models=("ridge", "gbr"),
+            )
+        )
+    else:
+        print(
+            "  note: V4/V5 skipped — generative-AI 10-Q columns not in panel. "
+            "Run `doit process_10q:analyze` (needs OPENAI_API_KEY) then rebuild."
         )
     return out
 

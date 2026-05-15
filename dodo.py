@@ -146,10 +146,16 @@ def task_pull():
 def task_process_10q():
     """Process the cached 10-Q filings into a (date, ticker) monthly panel.
 
-    Stages: clean → score → panel. The `embed` stage is intentionally NOT a
-    dependency of `panel`: it requires OPENAI_API_KEY and incurs API cost,
-    so it is opt-in via `doit process_10q:embed`. When the key is unset,
-    the embed script prints a notice and exits cleanly.
+    Stages: clean → score → panel. The `embed` and `analyze` stages are
+    intentionally NOT dependencies of `panel`: they require OPENAI_API_KEY
+    and incur API cost, so they are opt-in via `doit process_10q:embed` /
+    `doit process_10q:analyze`. When the key is unset, both scripts print a
+    notice and exit cleanly.
+
+    `analyze` is the generative-AI layer (gpt-4o-mini reads each 10-Q and
+    scores disclosure change vs the prior filing) that powers model variants
+    V4/V5. Re-run `process_10q:panel` and `build_panel` after `analyze` so
+    the AI columns reach the unified panel.
     """
     yield {
         "name": "clean",
@@ -198,6 +204,24 @@ def task_process_10q():
         "file_dep": [
             "./src/settings.py",
             "./src/embed_sec_10q_text.py",
+            DATA_DIR / "sec_10q" / "_meta" / "cleaned_index.csv",
+        ],
+        "uptodate": [False],
+        "clean": [],
+    }
+    yield {
+        "name": "analyze",
+        "doc": (
+            "Optional: gpt-4o-mini structured analysis of 10-Q disclosure "
+            "change vs the prior filing (powers model variants V4/V5). "
+            "Needs OPENAI_API_KEY; not a dependency of `panel`. Responses "
+            "are cached under _data/sec_10q/_llm_cache/ so re-runs are free."
+        ),
+        "actions": ["python ./src/analyze_sec_10q_llm.py"],
+        "targets": [],
+        "file_dep": [
+            "./src/settings.py",
+            "./src/analyze_sec_10q_llm.py",
             DATA_DIR / "sec_10q" / "_meta" / "cleaned_index.csv",
         ],
         "uptodate": [False],
@@ -313,9 +337,10 @@ def task_build_panel():
 def task_predict_returns():
     """CKX-style return-prediction model on the unified panel.
 
-    Runs three feature variants (V1: pooled, V2: AAPL+sentiment,
-    V3: AAPL+sentiment+10Q) through walk-forward CV with Ridge + GBR.
-    V3 auto-skips if the 10-Q panel hasn't been built.
+    Runs the nested variant ladder (V0a/V0b/V1/V2/V3 + V4/V5) through
+    walk-forward CV with Ridge + GBR. V3 auto-skips if the 10-Q lexicon
+    panel hasn't been built; V4/V5 auto-skip until `process_10q:analyze`
+    has produced the generative-AI 10-Q columns.
     """
     return {
         "actions": ["python ./src/predict_returns_ckx.py"],
@@ -330,6 +355,21 @@ def task_predict_returns():
             OUTPUT_DIR / "ckx_portfolio.parquet",
         ],
         "clean": True,
+        "verbosity": 2,
+    }
+
+
+def task_dashboard():
+    """Launch the Streamlit results dashboard (long-running server).
+
+    Convenience wrapper for `streamlit run src/dashboard.py`. Read-only — it
+    views the pipeline outputs (ckx_* artifacts + panel_monthly.parquet) and
+    never recomputes. Not wired into `run_notebooks` / `build_chartbook_site`.
+    """
+    return {
+        "actions": ["streamlit run ./src/dashboard.py"],
+        "file_dep": ["./src/dashboard.py"],
+        "uptodate": [False],  # it's a server, not a build artifact
         "verbosity": 2,
     }
 
@@ -357,6 +397,77 @@ def task_forecast_chronos2():
         "uptodate": [False],  # forecast as_of changes; always re-run
         "verbosity": 2,
         "clean": [_clean_chronos2_outputs],
+    }
+
+
+def task_backtest_chronos2():
+    """Historical Chronos-2 backtest: 5 tickers x 4 quarters vs Consensus + Naive.
+
+    Produces `_output/chronos2_backtest.parquet` + summary JSON. Local CPU,
+    zero API cost. See `docs_src/results/forecasts.md` for the metric
+    definitions and the FY-period caveat on the consensus comparison.
+    """
+    return {
+        "actions": ["python ./src/backtest_chronos2.py"],
+        "file_dep": [
+            "./src/backtest_chronos2.py",
+            "./src/forecast_chronos2.py",
+            "./src/build_panel.py",
+            str(Path(DATA_DIR) / "panel_monthly.parquet"),
+        ],
+        "targets": [
+            Path(OUTPUT_DIR) / "chronos2_backtest.parquet",
+            Path(OUTPUT_DIR) / "chronos2_backtest_summary.json",
+        ],
+        "clean": True,
+        "verbosity": 2,
+    }
+
+
+def task_generate_digests():
+    """Generate the 5x4 grid of decision digests (one OpenAI call per cell, cached).
+
+    Each digest pre-fetches the returns view, fundamentals view, and top-K
+    10-Q + transcript chunks for (ticker, as_of) and makes exactly one
+    structured-output call. Cached under `_data/digest_cache/`. Re-runs are
+    free; bump PROMPT_VERSION in `generate_digest.py` to force a paid re-run.
+
+    Cost: ~$2 on first run, $0 thereafter. Exits 0 if OPENAI_API_KEY is unset.
+    """
+    return {
+        "actions": ["python ./src/generate_digest.py --all"],
+        "file_dep": [
+            "./src/generate_digest.py",
+            str(Path(OUTPUT_DIR) / "ckx_predictions.parquet"),
+            str(Path(OUTPUT_DIR) / "chronos2_backtest.parquet"),
+        ],
+        # No fixed target file — cache lives at _data/digest_cache/*.json
+        # with one file per (ticker, as_of, prompt_version). Use uptodate=False
+        # and let the script's own per-cell cache short-circuit re-runs.
+        "uptodate": [False],
+        "verbosity": 2,
+    }
+
+
+def task_eval_digest():
+    """Compute citation / numeric-grounding / direction-match verifiers on cached digests.
+
+    Three independent verifiers, reported per-digest and aggregated. See
+    `docs_src/project_overview/methodology.md` for the design (and for why we
+    deliberately do NOT compute a Fuentes-style triangular composite).
+    """
+    return {
+        "actions": ["python ./src/eval_digest.py"],
+        "file_dep": [
+            "./src/eval_digest.py",
+            str(Path(OUTPUT_DIR) / "ckx_predictions.parquet"),
+        ],
+        "targets": [
+            Path(OUTPUT_DIR) / "digest_eval.parquet",
+            Path(OUTPUT_DIR) / "digest_eval_summary.json",
+        ],
+        "clean": True,
+        "verbosity": 2,
     }
 
 
