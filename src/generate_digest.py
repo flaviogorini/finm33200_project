@@ -2,7 +2,7 @@
 
 For (ticker, as_of_date), this:
   1. Pre-fetches deterministically (no agent loop):
-        - Returns view: p_up + y_pred from the CKX V5 GBR predictions.
+        - Returns view: p_up + y_pred from the CKX V4 GBR predictions.
         - Fundamentals view: 4-horizon Chronos forecast row from the backtest.
         - Disclosure context: top-3 PIT-filtered 10-Q chunks (FAISS).
         - Transcript context: top-2 PIT-filtered transcript chunks.
@@ -35,7 +35,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from backtest_chronos2 import BACKTEST_AS_OF_DATES, BACKTEST_TICKERS
+from backtest_chronos2_fundamentals import BACKTEST_AS_OF_DATES, BACKTEST_TICKERS
 from build_panel import load_panel
 from settings import config
 
@@ -125,12 +125,12 @@ SYSTEM_PROMPT = (
 def get_returns_view(
     ticker: str, as_of: pd.Timestamp, predictions: pd.DataFrame
 ) -> dict | None:
-    """Return p_up + y_pred from the CKX V5 GBR head, falling back to V3 GBR.
+    """Return p_up + y_pred from the CKX V4 GBR head, falling back to V3 GBR.
 
     Returns None when no prediction exists for (ticker, as_of) under any
     variant — caller will surface a `no_returns_view` failure warning.
     """
-    for variant_pref in ("v5", "v4", "v3", "v2", "v1", "v0b"):
+    for variant_pref in ("v4", "v3", "v2", "v1", "v0b"):
         sub = predictions[
             (predictions["ticker"] == ticker)
             & (predictions["date"] == as_of)
@@ -396,7 +396,7 @@ Output the structured DigestSchema with five fields:
   - rationale_fundamentals: one paragraph using Chronos vs consensus vs naive.
   - rationale_disclosure: one paragraph citing 10-Q + transcript quotes.
   - evidence: 3-5 items, each with source_type, source_id (e.g. accession_number for
-    10-Q, transcript_id for calls, "ckx_V5_gbr" for the returns model, target for chronos),
+    10-Q, transcript_id for calls, "ckx_V4_gbr" for the returns model, target for chronos),
     a verbatim quote, and why_it_matters.
   - failure_warnings: any data gaps that materially weaken the call (empty list if none).
 

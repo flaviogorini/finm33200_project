@@ -154,7 +154,7 @@ def task_process_10q():
 
     `analyze` is the generative-AI layer (gpt-4o-mini reads each 10-Q and
     scores disclosure change vs the prior filing) that powers model variants
-    V4/V5. Re-run `process_10q:panel` and `build_panel` after `analyze` so
+    V4. Re-run `process_10q:panel` and `build_panel` after `analyze` so
     the AI columns reach the unified panel.
     """
     yield {
@@ -213,7 +213,7 @@ def task_process_10q():
         "name": "analyze",
         "doc": (
             "Optional: gpt-4o-mini structured analysis of 10-Q disclosure "
-            "change vs the prior filing (powers model variants V4/V5). "
+            "change vs the prior filing (powers model variants V4). "
             "Needs OPENAI_API_KEY; not a dependency of `panel`. Responses "
             "are cached under _data/sec_10q/_llm_cache/ so re-runs are free."
         ),
@@ -337,9 +337,9 @@ def task_build_panel():
 def task_predict_returns():
     """CKX-style return-prediction model on the unified panel.
 
-    Runs the nested variant ladder (V0a/V0b/V1/V2/V3 + V4/V5) through
+    Runs the nested variant ladder (V0a/V0b/V1/V2/V3 + V4) through
     walk-forward CV with Ridge + GBR. V3 auto-skips if the 10-Q lexicon
-    panel hasn't been built; V4/V5 auto-skip until `process_10q:analyze`
+    panel hasn't been built; V4 auto-skips until `process_10q:analyze`
     has produced the generative-AI 10-Q columns.
     """
     return {
@@ -355,21 +355,6 @@ def task_predict_returns():
             OUTPUT_DIR / "ckx_portfolio.parquet",
         ],
         "clean": True,
-        "verbosity": 2,
-    }
-
-
-def task_dashboard():
-    """Launch the Streamlit results dashboard (long-running server).
-
-    Convenience wrapper for `streamlit run src/dashboard.py`. Read-only — it
-    views the pipeline outputs (ckx_* artifacts + panel_monthly.parquet) and
-    never recomputes. Not wired into `run_notebooks` / `build_chartbook_site`.
-    """
-    return {
-        "actions": ["streamlit run ./src/dashboard.py"],
-        "file_dep": ["./src/dashboard.py"],
-        "uptodate": [False],  # it's a server, not a build artifact
         "verbosity": 2,
     }
 
@@ -400,17 +385,101 @@ def task_forecast_chronos2():
     }
 
 
-def task_backtest_chronos2():
-    """Historical Chronos-2 backtest: 5 tickers x 4 quarters vs Consensus + Naive.
+def task_forecast():
+    """Return-forecasting experiments (slice A: generic stock, slice B: US-company factors)."""
+    # slice A — single-stock baselines + Chronos2 (no covariates)
+    yield {
+        "name": "stock_baseline",
+        "doc": "Baseline (mean/AR1/ARIMA/zero) 1-step return forecasts for a single ticker",
+        "actions": ["python ./src/stock_baselines.py --ticker AAPL"],
+        "targets": [DATA_DIR / "AAPL_Baseline_Forecasts.parquet"],
+        "file_dep": [
+            "./src/stock_baselines.py",
+            "./src/stock_returns.py",
+            "./src/forecast_utils.py",
+            DATA_DIR / "US_Companies_Hist_Data.parquet",
+        ],
+        "task_dep": ["pull:manual_companies"],
+        "clean": [],
+    }
+    yield {
+        "name": "stock_chronos",
+        "doc": "Chronos2 1-step return forecasts for a single ticker",
+        "actions": ["python ./src/stock_chronos.py --ticker AAPL"],
+        "targets": [DATA_DIR / "AAPL_Chronos_Forecasts.parquet"],
+        "file_dep": [
+            "./src/stock_chronos.py",
+            "./src/stock_returns.py",
+            "./src/forecast_utils.py",
+            DATA_DIR / "US_Companies_Hist_Data.parquet",
+        ],
+        "task_dep": ["pull:manual_companies"],
+        "clean": [],
+    }
+    # slice B — 13-ticker US-company analyst-factor experiment
+    yield {
+        "name": "us_panel",
+        "doc": "Build US-company monthly returns + analyst-factor panel",
+        "actions": ["python ./src/us_company_factors.py"],
+        "targets": [DATA_DIR / "US_Company_Panel.parquet"],
+        "file_dep": [
+            "./src/us_company_factors.py",
+            DATA_DIR / "US_Companies_Forecast.parquet",
+            DATA_DIR / "US_Companies_Hist_Data.parquet",
+        ],
+        "task_dep": ["pull:manual_companies"],
+        "clean": [],
+    }
+    yield {
+        "name": "us_regression",
+        "doc": "Per-ticker 3-factor regressions of monthly US returns",
+        "actions": ["python ./src/us_company_forecasts.py --only regression"],
+        "targets": [DATA_DIR / "US_Regression_Forecasts.parquet"],
+        "file_dep": [
+            "./src/us_company_forecasts.py",
+            "./src/forecast_utils.py",
+            "./src/us_company_factors.py",
+            DATA_DIR / "US_Company_Panel.parquet",
+        ],
+        "clean": [],
+    }
+    yield {
+        "name": "us_chronos",
+        "doc": "Chronos2 monthly forecasts of US returns with factor covariates",
+        "actions": ["python ./src/us_company_forecasts.py --only chronos"],
+        "targets": [DATA_DIR / "US_Chronos_Forecasts.parquet"],
+        "file_dep": [
+            "./src/us_company_forecasts.py",
+            "./src/forecast_utils.py",
+            "./src/us_company_factors.py",
+            DATA_DIR / "US_Company_Panel.parquet",
+        ],
+        "clean": [],
+    }
+
+
+# =============================================================================
+# Generative-AI copilot tasks (Gonzalo)
+# -----------------------------------------------------------------------------
+# Everything below this banner extends the pipeline with the copilot layer:
+# Chronos-2 fundamentals backtest, RAG-grounded decision digest, digest
+# verifiers, and the Streamlit dashboard. Kept as pure additions after the
+# existing tasks so this section can be merged/reverted as a unit without
+# touching anyone else's work above.
+# =============================================================================
+
+
+def task_backtest_chronos2_fundamentals():
+    """Historical Chronos-2 **fundamentals** backtest: 5 tickers x 4 quarters vs Consensus + Naive.
 
     Produces `_output/chronos2_backtest.parquet` + summary JSON. Local CPU,
     zero API cost. See `docs_src/results/forecasts.md` for the metric
     definitions and the FY-period caveat on the consensus comparison.
     """
     return {
-        "actions": ["python ./src/backtest_chronos2.py"],
+        "actions": ["python ./src/backtest_chronos2_fundamentals.py"],
         "file_dep": [
-            "./src/backtest_chronos2.py",
+            "./src/backtest_chronos2_fundamentals.py",
             "./src/forecast_chronos2.py",
             "./src/build_panel.py",
             str(Path(DATA_DIR) / "panel_monthly.parquet"),
@@ -471,6 +540,21 @@ def task_eval_digest():
     }
 
 
+def task_dashboard():
+    """Launch the Streamlit results dashboard (long-running server).
+
+    Convenience wrapper for `streamlit run src/dashboard.py`. Read-only — it
+    views the pipeline outputs (ckx_* artifacts + panel_monthly.parquet) and
+    never recomputes. Not wired into `run_notebooks` / `build_chartbook_site`.
+    """
+    return {
+        "actions": ["streamlit run ./src/dashboard.py"],
+        "file_dep": ["./src/dashboard.py"],
+        "uptodate": [False],  # it's a server, not a build artifact
+        "verbosity": 2,
+    }
+
+
 notebook_tasks = {
     "01_example_notebook_interactive.ipynb.py": {
         "path": "./src/01_example_notebook_interactive.ipynb.py",
@@ -487,6 +571,22 @@ notebook_tasks = {
         "file_dep": [
             str(Path(OUTPUT_DIR) / "ckx_predictions.parquet"),
             str(Path(OUTPUT_DIR) / "ckx_metrics.json"),
+        ],
+        "targets": [],
+    },
+    "04_stock_return_evaluation.ipynb.py": {
+        "path": "./src/04_stock_return_evaluation.ipynb.py",
+        "file_dep": [
+            DATA_DIR / "AAPL_Baseline_Forecasts.parquet",
+            DATA_DIR / "AAPL_Chronos_Forecasts.parquet",
+        ],
+        "targets": [],
+    },
+    "05_us_company_evaluation.ipynb.py": {
+        "path": "./src/05_us_company_evaluation.ipynb.py",
+        "file_dep": [
+            DATA_DIR / "US_Regression_Forecasts.parquet",
+            DATA_DIR / "US_Chronos_Forecasts.parquet",
         ],
         "targets": [],
     },

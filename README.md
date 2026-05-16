@@ -4,16 +4,16 @@ FINM 33200 final project. A **forecast-spine copilot** for equity analysis.
 Two forecasts feed one decision output:
 
 ```
-Returns forecast (V0a → V5 ladder)         ──┐
+Returns forecast (V0a → V4 ladder)         ──┐
                                               ├──→ Decision digest ──→ honest evaluation
 Company-data forecast (Amazon Chronos-2)   ──┘    (one-shot, not agentic)
 ```
 
 - **Returns forecast** ([src/predict_returns_ckx.py](src/predict_returns_ckx.py))
-  — five nested feature variants V0a → V5, evaluated on identical OOS rows.
+  — five nested feature variants V0a → V4, evaluated on identical OOS rows.
   Headline metrics: rank IC (Spearman) + AUC + portfolio Sharpe. R² is
   reported but demoted (monthly-return R² is noise-bounded near zero).
-- **Company-data forecast** ([src/backtest_chronos2.py](src/backtest_chronos2.py))
+- **Company-data forecast** ([src/backtest_chronos2_fundamentals.py](src/backtest_chronos2_fundamentals.py))
   — Amazon Chronos-2 zero-shot fundamentals forecast vs Bloomberg consensus
   vs naive YoY, on a 5-ticker × 4-quarter backtest grid.
 - **Decision digest** ([src/generate_digest.py](src/generate_digest.py))
@@ -37,7 +37,7 @@ After cleaning a venv and installing requirements (see
 
 ```powershell
 doit predict_returns               # if not already current
-doit backtest_chronos2             # NEW; local, no API cost
+doit backtest_chronos2_fundamentals  # NEW; local, no API cost
 doit generate_digests              # NEW; ~$2 OpenAI cost, cached
 doit eval_digest                   # NEW; local
 streamlit run src/dashboard.py     # 5 tabs: forecast, ladder, AI timeline, snippets, portfolio
@@ -57,7 +57,7 @@ up-front:
   within this universe"* — not *"feature X works universally."*
 - **2014-2025 backtest is a strong-bull-market sample.** The V0a equal-weight
   buy-and-hold benchmark is artificially tough; the long-short Sharpes for
-  V0b-V5 should be read against this caveat.
+  V0b-V4 should be read against this caveat.
 - **Reported portfolio Sharpes are gross of transaction costs.** Add a flat
   5–10 bps per turnover for a trading-realistic backtest.
 - **Hyperparameters are not tuned.** Values for Ridge and GBR are stated
@@ -124,7 +124,7 @@ doit build_features            # parse Bloomberg Excels + 4 monthly feature parq
 doit build_sentiment           # embed AAPL transcripts + score + monthly carry-forward
 doit pull:sec_10q_filings      # (optional) pull AAPL 10-Q filings from SEC EDGAR
 doit process_10q               # (optional) clean + score + monthly 10-Q text panel
-doit process_10q:analyze       # (optional) generative-AI 10-Q analysis → V4/V5 (needs OPENAI_API_KEY)
+doit process_10q:analyze       # (optional) generative-AI 10-Q analysis → V4 (needs OPENAI_API_KEY)
 doit build_panel               # join everything → _data/panel_monthly.parquet
 doit forecast_chronos2         # 4Q forecast for AAPL → _output/chronos2_forecast_AAPL_*.parquet
 doit predict_returns           # CKX-style return classifier → _output/ckx_*.parquet
@@ -133,7 +133,7 @@ doit dashboard                 # launch the Streamlit results dashboard
 
 `doit process_10q:analyze` runs `gpt-4o-mini` over each 10-Q to score how
 its disclosure changed versus the prior filing — this powers model variants
-V4/V5. It is opt-in (no-ops without `OPENAI_API_KEY`); re-run
+V4. It is opt-in (no-ops without `OPENAI_API_KEY`); re-run
 `doit process_10q:panel` and `doit build_panel` afterward so the AI columns
 reach the panel. Responses are cached under `_data/sec_10q/_llm_cache/`, so
 re-runs are free and reproducible.
@@ -174,12 +174,12 @@ python src/forecast_chronos2.py AAPL --as-of 2024-09-30
 python src/pull_sec_10q_filings.py
 python src/clean_sec_10q_text.py
 python src/score_sec_10q_text.py
-python src/analyze_sec_10q_llm.py            # (optional) generative-AI 10-Q analysis → V4/V5
+python src/analyze_sec_10q_llm.py            # (optional) generative-AI 10-Q analysis → V4
 #   pilot first:  python src/analyze_sec_10q_llm.py --tickers AAPL JPM KO
 python src/build_10q_monthly_panel.py
 python src/build_panel.py    # rebuild panel to include 10q_* columns
 
-# 7. CKX-style return-prediction model (V0a..V3, plus V4/V5 once analyze has run)
+# 7. CKX-style return-prediction model (V0a..V3, plus V4 once analyze has run)
 python src/predict_returns_ckx.py
 
 # 8. (Optional) Interactive results dashboard
@@ -364,7 +364,7 @@ doit process_10q:clean         # → _data/sec_10q/{TICKER}/processed_text/*.txt
 doit process_10q:score         # LM-dictionary + lexical drift → 10q_features.parquet
 doit process_10q:panel         # merge_asof monthly grid → sec_10q_monthly_panel.parquet
 doit process_10q:embed         # OPTIONAL: OpenAI embeddings + FAISS (needs OPENAI_API_KEY)
-doit process_10q:analyze       # OPTIONAL: generative-AI 10-Q analysis → V4/V5 (needs OPENAI_API_KEY)
+doit process_10q:analyze       # OPTIONAL: generative-AI 10-Q analysis → V4 (needs OPENAI_API_KEY)
 ```
 
 The `embed` and `analyze` tasks are opt-in: neither is a dependency of
@@ -376,8 +376,8 @@ has `gpt-4o-mini` read each 10-Q's MD&A / risk / market-risk / controls /
 legal sections, compare them to the same ticker's previous filing, and emit
 structured numeric scores (`10q_ai_tone_score`, `10q_ai_risk_score`,
 `10q_ai_disclosure_change_score`, …) plus a short summary and cited evidence
-quotes. These columns power model variants V4 (AI replaces the LM lexicon)
-and V5 (LM + AI combined). The stage only analyzes filings from
+quotes. These columns power model variant V4 (AI replaces the LM lexicon).
+The stage only analyzes filings from
 `SEC_10Q_LLM_START_YEAR` (default 2014) onward to bound API cost, and caches
 every response under `_data/sec_10q/_llm_cache/` keyed on
 `(accession, prev_accession, prompt_version)` — so re-runs make zero API

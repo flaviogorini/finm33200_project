@@ -19,10 +19,8 @@ incremental hypothesis:
           dictionary signal add?"
     V4  — V3 base + generative-AI 10-Q analysis only (LM lexicon dropped).
           "Does an LLM reading the 10-Q beat the dictionary?"
-    V5  — V3 base + LM lexicon + generative-AI 10-Q analysis. "Do the
-          dictionary and the LLM complement each other?"
 
-V4/V5 auto-skip until `doit process_10q:analyze` has produced the
+V4 auto-skips until `doit process_10q:analyze` has produced the
 generative-AI 10-Q columns; V3 auto-skips without the lexicon panel.
 
 Each non-V0a variant runs both Ridge and Gradient Boosting. Two heads per
@@ -198,9 +196,8 @@ def variants_for_panel(panel_columns: list[str]) -> list[Variant]:
             "Run `doit pull:sec_10q_filings && doit process_10q` first."
         )
 
-    # V4/V5 — generative-AI 10-Q analysis. V4 swaps the LM lexicon for the
-    # LLM features (tests "does generative AI beat the dictionary?"); V5
-    # stacks both (tests whether they complement). Both reuse the same V3
+    # V4 — generative-AI 10-Q analysis swaps the LM lexicon for LLM features
+    # (tests "does generative AI beat the dictionary?"). Reuses the same V3
     # base (V1 features + call sentiment) so the only thing that varies is
     # the 10-Q text representation.
     if all(c in panel_columns for c in SEC_10Q_AI_COLS):
@@ -214,19 +211,9 @@ def variants_for_panel(panel_columns: list[str]) -> list[Variant]:
                 models=("ridge", "gbr"),
             )
         )
-        lm_cols = SEC_10Q_CORE_COLS if all(c in panel_columns for c in SEC_10Q_CORE_COLS) else ()
-        embed_extra = tuple(c for c in SEC_10Q_EMBED_COLS if c in panel_columns)
-        out.append(
-            Variant(
-                name="v5",
-                description="V3 base + LM 10-Q lexicon + generative-AI 10-Q analysis (combined).",
-                features=v3_base + lm_cols + embed_extra + SEC_10Q_AI_COLS,
-                models=("ridge", "gbr"),
-            )
-        )
     else:
         print(
-            "  note: V4/V5 skipped — generative-AI 10-Q columns not in panel. "
+            "  note: V4 skipped — generative-AI 10-Q columns not in panel. "
             "Run `doit process_10q:analyze` (needs OPENAI_API_KEY) then rebuild."
         )
     return out

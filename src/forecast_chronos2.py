@@ -1,4 +1,11 @@
-"""Zero-shot fundamentals forecast with Amazon Chronos-2.
+"""Zero-shot **fundamentals** forecast with Amazon Chronos-2.
+
+Forecasts *quarterly revenue and net income* — not returns. The separate
+``stock_chronos.py`` / ``us_company_forecasts.py`` pipelines forecast
+**returns** (univariate and with analyst-factor covariates respectively).
+The two Chronos uses are intentionally distinct: this file feeds the
+digest's "fundamentals trajectory" rationale; the returns-forecast files
+feed the per-ticker return-prediction comparison.
 
 Loads ``amazon/chronos-2`` from Hugging Face via the ``chronos-forecasting``
 library and produces probabilistic 4-quarter-ahead forecasts of revenue and
@@ -114,7 +121,7 @@ def forecast(
     """Forecast revenue / net_income (and optionally EBITDA) for one ticker as of one date.
 
     Wrapper around :func:`forecast_for_ticker` intended for callers that need
-    to invoke Chronos repeatedly (e.g. ``backtest_chronos2.py``). Passing a
+    to invoke Chronos repeatedly (e.g. ``backtest_chronos2_fundamentals.py``). Passing a
     pre-loaded ``panel`` and ``pipeline`` avoids reloading them on each call
     — Chronos-2 model load is the dominant cost.
 

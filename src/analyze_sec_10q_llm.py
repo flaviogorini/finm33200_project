@@ -68,7 +68,7 @@ SECTION_BUDGETS = {
 SECTION_ORDER = ("mda", "risk_changes", "market_risk", "controls", "legal")
 
 # Numeric feature columns — these are the only AI columns that ever enter the
-# model feature matrix (V4/V5). Kept in sync with SEC_10Q_AI_COLS in
+# model feature matrix (V4). Kept in sync with SEC_10Q_AI_COLS in
 # predict_returns_ckx.py.
 AI_NUMERIC_COLS = (
     "10q_ai_tone_score",

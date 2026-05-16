@@ -3,7 +3,7 @@
 Two forecasts feed the decision digest. Both are evaluated honestly here — no
 target threshold is hardcoded; we report what the data shows.
 
-## Returns forecast — V0a → V5 ladder
+## Returns forecast — V0a → V4 ladder
 
 **Code:** [src/predict_returns_ckx.py](../../src/predict_returns_ckx.py)
 **Outputs:** `_output/ckx_metrics.json`, `_output/ckx_predictions.parquet`, `_output/ckx_portfolio.parquet`
@@ -13,7 +13,7 @@ The variant ladder tests four nested hypotheses (see [goals.md](../project_overv
 1. **V0b vs V0a** — does anything beat zero?
 2. **V1 vs V0b** — does fundamentals + macro add to momentum?
 3. **V2/V3 vs V1** — does text (call sentiment, then 10-Q lexicon) add?
-4. **V4/V5 vs V3** — does the LLM beat the dictionary, and do they complement each other?
+4. **V4 vs V3** — does the LLM reading the filing beat the word-count dictionary?
 
 ### Headline metrics — rank IC + AUC + portfolio Sharpe
 
@@ -46,7 +46,7 @@ dashboard's "Portfolio" tab plots them.
 
 ## Fundamentals forecast — Chronos-2 vs Consensus vs Naive
 
-**Code:** [src/backtest_chronos2.py](../../src/backtest_chronos2.py)
+**Code:** [src/backtest_chronos2_fundamentals.py](../../src/backtest_chronos2_fundamentals.py)
 **Outputs:** `_output/chronos2_backtest.parquet`, `_output/chronos2_backtest_summary.json`
 
 ### Setup

@@ -1,4 +1,9 @@
-"""Chronos-2 fundamentals forecast backtest vs Bloomberg consensus + naive YoY.
+"""Chronos-2 **fundamentals** forecast backtest vs Bloomberg consensus + naive YoY.
+
+Backtests *quarterly revenue and net_income* forecasts produced by
+:mod:`forecast_chronos2`. The companion ``stock_chronos.py`` /
+``us_company_forecasts.py`` modules backtest a different Chronos use:
+forecasting **returns** with and without analyst-factor covariates.
 
 For each (ticker, as_of) in a small backtest grid, this:
 1. Generates a 4-quarter Chronos forecast for revenue and net_income using
@@ -19,8 +24,8 @@ Grid (matches the digest grid in :mod:`generate_digest`):
     5 tickers x 4 as_of dates x 2 targets x 4 horizons = 160 rows.
 
 Usage:
-    python src/backtest_chronos2.py                          # full grid
-    python src/backtest_chronos2.py --tickers AAPL --as-of 2024-09-30   # one cell
+    python src/backtest_chronos2_fundamentals.py                          # full grid
+    python src/backtest_chronos2_fundamentals.py --tickers AAPL --as-of 2024-09-30   # one cell
 """
 
 from __future__ import annotations

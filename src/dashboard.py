@@ -4,7 +4,7 @@ Read-only viewer over the artifacts produced by the pipeline — it never
 recomputes anything. Five views:
 
   1. Ticker forecast      — y_true vs y_pred (+ p_up) for a chosen variant.
-  2. Variant ladder       — V0a→V5 AUC / OOS R2 / IC bars from ckx_metrics.json.
+  2. Variant ladder       — V0a→V4 AUC / OOS R2 / IC bars from ckx_metrics.json.
   3. 10-Q AI timeline     — generative-AI tone / risk / uncertainty / change
                             scores per filing, with material-change markers.
   4. Cited filing snippets — the LLM's summary + cited evidence per 10-Q.
@@ -166,9 +166,8 @@ def view_variant_ladder(metrics: dict) -> None:
     st.bar_chart(pivot)
     st.caption(
         "V0a/V0b = baselines · V1 = +fundamentals/macro · V2 = +call sentiment · "
-        "V3 = +10-Q LM lexicon · V4 = +generative-AI 10-Q (lexicon dropped) · "
-        "V5 = LM + generative-AI 10-Q combined. V4/V5 appear once "
-        "`doit process_10q:analyze` has run.  \n"
+        "V3 = +10-Q LM lexicon · V4 = +generative-AI 10-Q (lexicon dropped). "
+        "V4 appears once `doit process_10q:analyze` has run.  \n"
         "**Headline:** rank IC (Spearman) and AUC. Monthly return R² is "
         "noise-bounded near zero; reported for transparency, not as the "
         "primary success metric."

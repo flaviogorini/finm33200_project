@@ -58,7 +58,7 @@ SEC_10Q_FEATURE_COLS = (
     "10q_change_vs_previous",
     "10q_embedding_cosine_vs_previous",
     "10q_embedding_change_vs_previous",
-    # Generative-AI 10-Q analysis (analyze_sec_10q_llm.py); powers V4/V5.
+    # Generative-AI 10-Q analysis (analyze_sec_10q_llm.py); powers V4.
     "10q_ai_tone_score",
     "10q_ai_risk_score",
     "10q_ai_uncertainty_score",
