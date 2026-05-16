@@ -40,6 +40,7 @@ SAMPLE_TICKERS = ["AAPL", "NVDA", "AMZN", "COST", "GOOGL", "ARM", "APP", "SNDK"]
 SOURCE_RAW_DATASET_VERSION = "nasdaq100_raw_frozen_20260513_155750"
 CLEN_VERSION = "sample_cleaning_v0.2"
 RUN_SCOPE = "sample"
+RUN_LABEL = None
 
 SAFE_HARBOR_PATTERNS = [
     r"forward[- ]looking statements?",
@@ -748,6 +749,7 @@ def write_manifest(
         "cleaning_run_id": f"{RUN_SCOPE}_cleaning_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
         "cleaning_timestamp": datetime.now().isoformat(timespec="seconds"),
         "cleaning_version": CLEN_VERSION,
+        "label": RUN_LABEL,
         "inherits_from": "sample_cleaning_v0.2" if RUN_SCOPE == "full" else None,
         "source_raw_dataset_version": SOURCE_RAW_DATASET_VERSION,
         "input_files": {
@@ -831,15 +833,66 @@ def configure_outputs(mode: str) -> None:
         MANIFEST_OUT = QC_DIR / "nasdaq100_cleaning_manifest.json"
 
 
+def apply_path_overrides(args: argparse.Namespace) -> None:
+    global RUN_LABEL
+    global RAW_COMPONENTS_PATH, RAW_METADATA_PATH
+    global COMPONENTS_OUT, CALLS_OUT, LLM_VIEWS_OUT, QC_OUT, SUMMARY_OUT, MANUAL_REVIEW_OUT, MANIFEST_OUT
+
+    RUN_LABEL = args.label
+    if args.input_raw_components_path:
+        RAW_COMPONENTS_PATH = args.input_raw_components_path
+    if args.input_raw_metadata_path:
+        RAW_METADATA_PATH = args.input_raw_metadata_path
+    if args.output_cleaned_components_path:
+        COMPONENTS_OUT = args.output_cleaned_components_path
+    if args.output_cleaned_calls_path:
+        CALLS_OUT = args.output_cleaned_calls_path
+    if args.output_llm_views_path:
+        LLM_VIEWS_OUT = args.output_llm_views_path
+    if args.output_qc_path:
+        QC_OUT = args.output_qc_path
+    if args.output_summary_path:
+        SUMMARY_OUT = args.output_summary_path
+    if args.output_manual_review_path:
+        MANUAL_REVIEW_OUT = args.output_manual_review_path
+    if args.output_manifest_path:
+        MANIFEST_OUT = args.output_manifest_path
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["sample", "full"], default="sample")
+    parser.add_argument(
+        "--label",
+        default=None,
+        help="Optional run label used in manifest metadata; paths are controlled by output path arguments.",
+    )
+    parser.add_argument("--input-raw-components-path", type=Path, default=None)
+    parser.add_argument("--input-raw-metadata-path", type=Path, default=None)
+    parser.add_argument("--output-cleaned-components-path", type=Path, default=None)
+    parser.add_argument("--output-cleaned-calls-path", type=Path, default=None)
+    parser.add_argument("--output-llm-views-path", type=Path, default=None)
+    parser.add_argument("--output-qc-path", type=Path, default=None)
+    parser.add_argument("--output-summary-path", type=Path, default=None)
+    parser.add_argument("--output-manual-review-path", type=Path, default=None)
+    parser.add_argument("--output-manifest-path", type=Path, default=None)
     args = parser.parse_args()
     configure_outputs(args.mode)
+    apply_path_overrides(args)
 
     INTERIM_DIR.mkdir(parents=True, exist_ok=True)
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     QC_DIR.mkdir(parents=True, exist_ok=True)
+    for path in [
+        COMPONENTS_OUT,
+        CALLS_OUT,
+        LLM_VIEWS_OUT,
+        QC_OUT,
+        SUMMARY_OUT,
+        MANUAL_REVIEW_OUT,
+        MANIFEST_OUT,
+    ]:
+        path.parent.mkdir(parents=True, exist_ok=True)
     raw = pd.read_parquet(RAW_COMPONENTS_PATH)
     source_components = raw if args.mode == "full" else raw[raw["primary_ticker"].isin(SAMPLE_TICKERS)].copy()
     metadata_gap_counts, missing_component_calls = metadata_component_gap_summary(

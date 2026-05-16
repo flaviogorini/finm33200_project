@@ -115,6 +115,57 @@ python src/build_cleaning_final_review.py
 python src/freeze_cleaned_dataset.py
 ```
 
+## Min-10Y Coverage Reproduction Commands
+
+Use this path when reproducing only the 90-company min-10Y research sample.
+This does not require first generating the full 100-company cleaned parquet
+files.
+
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Extract raw transcripts directly from the min-10Y mapping/universe.
+# If --tickers is omitted, all tickers in the mapping are used, deduplicated by
+# unique ciq_company_id for extraction.
+python src/extract_sample_raw_transcripts.py \
+  --label nasdaq100_min10y \
+  --mapping-path _data/transcripts/_meta/ciq_company_mapping_min10y_coverage.csv \
+  --universe-path _data/transcripts/_meta/nasdaq100_constituents_min10y_coverage.csv \
+  --schema-output-path _output/transcripts/qc/nasdaq100_min10y_schema_inspection.json \
+  --start-date 2005-01-01 \
+  --end-date 2025-12-31
+
+# 3. Clean and parse the min-10Y deduped raw component output.
+python src/clean_sample_transcripts.py \
+  --mode full \
+  --label nasdaq100_min10y \
+  --input-raw-components-path _data/transcripts/raw/nasdaq100_min10y_raw_transcripts_deduped.parquet \
+  --input-raw-metadata-path _data/transcripts/raw/nasdaq100_min10y_raw_transcript_metadata_deduped.parquet \
+  --output-cleaned-components-path _data/transcripts/processed/nasdaq100_cleaned_components_min10y_coverage.parquet \
+  --output-cleaned-calls-path _data/transcripts/processed/nasdaq100_cleaned_calls_min10y_coverage.parquet \
+  --output-llm-views-path _data/transcripts/processed/nasdaq100_llm_views_min10y_coverage.parquet \
+  --output-qc-path _output/transcripts/qc/nasdaq100_min10y_cleaning_qc.csv \
+  --output-summary-path _output/transcripts/qc/nasdaq100_min10y_cleaning_summary.md \
+  --output-manual-review-path _output/transcripts/qc/nasdaq100_min10y_cleaning_manual_review.csv \
+  --output-manifest-path _output/transcripts/qc/nasdaq100_min10y_cleaning_manifest.json
+```
+
+Expected min-10Y outputs:
+
+- `_data/transcripts/processed/nasdaq100_cleaned_components_min10y_coverage.parquet`
+- `_data/transcripts/processed/nasdaq100_cleaned_calls_min10y_coverage.parquet`
+- `_data/transcripts/processed/nasdaq100_llm_views_min10y_coverage.parquet`
+
+Expected min-10Y row counts:
+
+- Unique `ciq_company_id`: 90
+- Cleaned calls: 6,341
+- LLM views: 44,387
+- Default view `no_operator_no_safe_harbor_full_text`: 6,341 rows
+
+Counts may drift slightly if Capital IQ updates historical transcripts.
+
 ## Expected Outputs
 
 Raw extraction outputs:

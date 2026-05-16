@@ -69,10 +69,15 @@ def sql_id_list(values: list[int]) -> str:
     return ", ".join(str(int(v)) for v in sorted(set(values)))
 
 
-def load_inputs(sample_tickers: list[str]) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    mapping = pd.read_csv(MAPPING_PATH).fillna("")
-    universe = pd.read_csv(UNIVERSE_PATH).fillna("")
-    availability = pd.read_csv(AVAILABILITY_PATH).fillna("")
+def load_inputs(
+    sample_tickers: list[str] | None,
+    mapping_path: Path = MAPPING_PATH,
+    universe_path: Path = UNIVERSE_PATH,
+    availability_path: Path = AVAILABILITY_PATH,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    mapping = pd.read_csv(mapping_path).fillna("")
+    universe = pd.read_csv(universe_path).fillna("")
+    availability = pd.read_csv(availability_path).fillna("")
 
     for df in [mapping, universe]:
         df["ticker"] = df["ticker"].astype(str).str.upper().str.strip()
@@ -81,7 +86,11 @@ def load_inputs(sample_tickers: list[str]) -> tuple[pd.DataFrame, pd.DataFrame, 
         availability["ciq_company_id"], errors="coerce"
     ).astype("Int64")
 
-    requested = pd.DataFrame({"ticker": [t.upper().strip() for t in sample_tickers]})
+    if sample_tickers:
+        requested_tickers = [t.upper().strip() for t in sample_tickers]
+    else:
+        requested_tickers = mapping["ticker"].dropna().astype(str).str.upper().str.strip().tolist()
+    requested = pd.DataFrame({"ticker": requested_tickers})
     selected = requested.merge(mapping, on="ticker", how="left", indicator=True)
     missing = selected[selected["_merge"] != "both"]["ticker"].tolist()
     if missing:
@@ -90,7 +99,9 @@ def load_inputs(sample_tickers: list[str]) -> tuple[pd.DataFrame, pd.DataFrame, 
     return universe, mapping, availability, selected
 
 
-def inspect_raw_transcript_schema(db: wrds.Connection) -> dict[str, Any]:
+def inspect_raw_transcript_schema(
+    db: wrds.Connection, schema_output_path: Path = SCHEMA_OUTPUT_PATH
+) -> dict[str, Any]:
     query = """
         SELECT table_schema, table_name, column_name, data_type, ordinal_position
         FROM information_schema.columns
@@ -168,7 +179,8 @@ def inspect_raw_transcript_schema(db: wrds.Connection) -> dict[str, Any]:
         },
         "raw_text_field": "componenttext",
     }
-    SCHEMA_OUTPUT_PATH.write_text(json.dumps(schema_info, indent=2), encoding="utf-8")
+    schema_output_path.parent.mkdir(parents=True, exist_ok=True)
+    schema_output_path.write_text(json.dumps(schema_info, indent=2), encoding="utf-8")
     return schema_info
 
 
@@ -671,7 +683,12 @@ additional Final/Q1-Q4/headline filters.
 
 def build_argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--tickers", nargs="+", default=DEFAULT_SAMPLE_TICKERS)
+    parser.add_argument(
+        "--tickers",
+        nargs="+",
+        default=None,
+        help="Tickers to extract. If omitted, all tickers in --mapping-path are used.",
+    )
     parser.add_argument("--start-date", default=DEFAULT_START_DATE)
     parser.add_argument("--end-date", default=DEFAULT_END_DATE)
     parser.add_argument(
@@ -679,21 +696,35 @@ def build_argparser() -> argparse.ArgumentParser:
         default="sample",
         help="output label prefix, e.g. sample or pilot20",
     )
+    parser.add_argument("--mapping-path", type=Path, default=MAPPING_PATH)
+    parser.add_argument("--universe-path", type=Path, default=UNIVERSE_PATH)
+    parser.add_argument("--availability-path", type=Path, default=AVAILABILITY_PATH)
+    parser.add_argument("--schema-output-path", type=Path, default=SCHEMA_OUTPUT_PATH)
     return parser
 
 
 def main() -> None:
     args = build_argparser().parse_args()
-    sample_tickers = [ticker.upper().strip() for ticker in args.tickers]
+    sample_tickers = (
+        [ticker.upper().strip() for ticker in args.tickers]
+        if args.tickers
+        else None
+    )
     paths = output_paths(args.label)
     run_id = f"{args.label}_raw_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
-    universe, mapping, availability, selected = load_inputs(sample_tickers)
+    universe, mapping, availability, selected = load_inputs(
+        sample_tickers,
+        mapping_path=args.mapping_path,
+        universe_path=args.universe_path,
+        availability_path=args.availability_path,
+    )
+    selected_tickers = selected["ticker"].dropna().astype(str).str.upper().tolist()
     company_ids = selected["ciq_company_id"].dropna().astype(int).unique().tolist()
 
     db = connect_wrds()
     try:
-        schema_info = inspect_raw_transcript_schema(db)
+        schema_info = inspect_raw_transcript_schema(db, schema_output_path=args.schema_output_path)
         metadata = query_raw_metadata(
             db,
             schema_info=schema_info,
@@ -718,7 +749,7 @@ def main() -> None:
         run_id=run_id,
         start_date=args.start_date,
         end_date=args.end_date,
-        sample_tickers=sample_tickers,
+        sample_tickers=selected_tickers,
         paths=paths,
     )
     print(f"Wrote raw metadata: {paths['raw_metadata']}")
