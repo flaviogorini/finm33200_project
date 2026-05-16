@@ -17,6 +17,9 @@
 # Allow example environment file
 !.env.example*
 
+# Per-user Claude Code settings — never commit these
+.claude/settings.local.json
+
 # Other
 temp*.csv
 */_build/

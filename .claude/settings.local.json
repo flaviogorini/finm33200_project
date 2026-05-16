@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\awang\\\\Downloads\\\\Github_repo\\\\finm33200_project\" -Recurse -Force)",
+      "Bash(Select-Object -Property FullName)",
+      "Bash(Sort-Object FullName)",
+      "Bash(python src/pull_bbg_earning_data.py AAPL)",
+      "PowerShell(& \"C:\\\\Users\\\\awang\\\\anaconda3\\\\python.exe\" -c \"import blp; print\\('blp at:', blp.__file__\\)\")",
+      "PowerShell($env:PYTHONIOENCODING = \"utf-8\"; & \"C:\\\\Users\\\\awang\\\\AppData\\\\Local\\\\anaconda3\\\\envs\\\\finm33200\\\\python.exe\" \"src\\\\pull_bbg_earning_data.py\" AAPL)",
+      "Bash(ls \"C:\\\\Users\\\\awang\\\\.claude\\\\projects\\\\c--Users-awang-Downloads-Github-repo-finm33200-project\\\\memory\\\\\" 2>&1)",
+      "Read(//c/Users/awang/.claude/projects/c--Users-awang-Downloads-Github-repo-finm33200-project/**)"
+    ]
+  }
+}

@@ -30,9 +30,7 @@ BDP_FIELDS = [
     "ENTERPRISE_VALUE",
     # Valuation multiples
     "PE_RATIO",
-    "BEST_PE_RATIO",
     "EV_TO_T12M_EBITDA",
-    "BEST_EV_TO_BEST_EBITDA",
     "PX_TO_SALES_RATIO",
     "EV_TO_T12M_SALES",
     "PX_TO_BOOK_RATIO",
@@ -53,13 +51,25 @@ BDP_FIELDS = [
     "TOT_DEBT_TO_TOT_ASSET",
     # Per-share
     "BOOK_VAL_PER_SH",
-    "BEST_EPS",
-    "BEST_SALES",
     "TRAIL_12M_EPS",
     "FREE_CASH_FLOW_PER_SH",
     "DVD_SH_12M",
     "EQY_DVD_YLD_IND",
 ]
+
+# BEST_* consensus fields — pulled with BEST_FPERIOD_OVERRIDE='1FQ' to force
+# next-fiscal-quarter consensus. Without the override Bloomberg's default can
+# drift between annual (1FY) and quarterly depending on terminal config and
+# ticker; '1FY' returns annual values (e.g. AAPL BEST_EPS≈$8.7) which is what
+# we're avoiding. '1BQ'/'1Q' don't work for PE/EV-EBITDA/EPS fields — '1FQ'
+# is the syntax that BDP accepts for all four.
+BEST_QUARTERLY_FIELDS = [
+    "BEST_PE_RATIO",
+    "BEST_EV_TO_BEST_EBITDA",
+    "BEST_EPS",
+    "BEST_SALES",
+]
+BEST_QUARTERLY_OVERRIDE = [("BEST_FPERIOD_OVERRIDE", "1FQ")]
 
 # ── BDH config ───────────────────────────────────────────────────────────────
 
@@ -92,6 +102,20 @@ def _build_bql_queries(ticker: str) -> dict[str, str]:
             get(gross_margin(fpt=q, fpo=range(-79,0)).value)
             for(['{ticker}'])
         """,
+        # Forward consensus (next 4 quarters). Dropping ae=a tells BQL to
+        # return estimates instead of actuals.
+        "quarterly_consensus_eps": f"""
+            get(is_eps(fpt=q, fpo=range(1,4)).value)
+            for(['{ticker}'])
+        """,
+        "quarterly_consensus_revenue": f"""
+            get(sales_rev_turn(fpt=q, fpo=range(1,4)).value)
+            for(['{ticker}'])
+        """,
+        "quarterly_consensus_ebitda": f"""
+            get(ebitda(fpt=q, fpo=range(1,4)).value)
+            for(['{ticker}'])
+        """,
     }
 
 
@@ -118,6 +142,14 @@ def pull_bbg_snapshot(bq, ticker: str) -> pd.DataFrame:
         print(f"  Valid ({len(valid)}): {valid}")
         print(f"  Invalid ({len(invalid)}): {invalid}")
         df = bq.bdp([ticker], valid)
+
+    # Pull BEST_* consensus with quarterly override (defaults to annual FY1
+    # without override — that's the bug this branch fixes).
+    best_df = bq.bdp(
+        [ticker], BEST_QUARTERLY_FIELDS, overrides=BEST_QUARTERLY_OVERRIDE
+    )
+    df = df.merge(best_df, on="security", how="left")
+
     df.insert(0, "as_of", datetime.today().strftime("%Y-%m-%d"))
     return df
 
