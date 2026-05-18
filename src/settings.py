@@ -230,9 +230,19 @@ def config(
             default_value = cast(default_value)
         return default_value
 
-    # 4. Use the default value provided in the local file. Error if not found
+    # 4. Use the default value provided in the local file. Error if not found.
+    # If caller passed default=None explicitly, treat that as "return None
+    # if not set" rather than going through decouple (which would raise or,
+    # worse, try to call cast=None on the value).
+    if default is None and cast is None:
+        return None
     try:
-        return _config(var_name, default=default, cast=cast)
+        kwargs = {}
+        if default is not None:
+            kwargs["default"] = default
+        if cast is not None:
+            kwargs["cast"] = cast
+        return _config(var_name, **kwargs)
     except Exception as e:
         raise ValueError(
             f"Configuration variable '{var_name}' is not defined. "
