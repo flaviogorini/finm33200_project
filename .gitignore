@@ -105,6 +105,8 @@ coverage.xml
 
 # Sphinx documentation
 docs/
+!docs/
+!docs/min10y_transcript_pipeline.md
 /docs_src/apidocs
 
 
