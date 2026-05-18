@@ -1,13 +1,13 @@
 # Nasdaq-100 Cleaned Transcript Dataset Freeze Report
 
-Generated: 2026-05-13T16:33:56
+Generated: 2026-05-18T01:53:58
 
 ## Freeze Status
 
 `full_cleaning_v1.0` is officially frozen as the current Nasdaq-100 cleaned
 transcript dataset.
 
-- Freeze run ID: `nasdaq100_cleaned_frozen_20260513_163356`
+- Freeze run ID: `nasdaq100_cleaned_frozen_20260518_015358`
 - Cleaning version: `full_cleaning_v1.0`
 - Inherited from: `sample_cleaning_v0.2`
 - Source raw dataset version: `nasdaq100_raw_frozen_20260513_155750`
@@ -15,9 +15,9 @@ transcript dataset.
 
 ## Frozen Outputs
 
-- Cleaned components: `/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/processed/nasdaq100_cleaned_components.parquet` (452,655 rows)
-- Cleaned calls: `/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/processed/nasdaq100_cleaned_calls.parquet` (6,510 rows)
-- LLM views: `/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/processed/nasdaq100_llm_views.parquet` (45,570 rows)
+- Cleaned components: `/Users/flavio/GitHub/finm33200_project/_data/transcripts/processed/nasdaq100_cleaned_components.parquet` (452,655 rows)
+- Cleaned calls: `/Users/flavio/GitHub/finm33200_project/_data/transcripts/processed/nasdaq100_cleaned_calls.parquet` (6,510 rows)
+- LLM views: `/Users/flavio/GitHub/finm33200_project/_data/transcripts/processed/nasdaq100_llm_views.parquet` (45,570 rows)
 - Unique tickers: 100
 - Unique CIQ company IDs: 100
 - LLM views per call: 7

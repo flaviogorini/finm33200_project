@@ -1,16 +1,16 @@
 # Nasdaq-100 Full Raw Transcript Extraction Summary
 
-Generated: 2026-05-13T15:52:09
+Generated: 2026-05-18T01:50:08
 
 ## Scope
 
-- Run ID: `nasdaq100_raw_20260513_154049`
+- Run ID: `nasdaq100_raw_20260518_014157`
 - Sample tickers: AAPL, ABNB, ADBE, ADI, ADP, ADSK, AEP, ALNY, AMAT, AMD, AMGN, AMZN, APP, ARM, ASML, AVGO, AXON, BKNG, BKR, CCEP, CDNS, CEG, CHTR, CMCSA, COST, CPRT, CRWD, CSCO, CSGP, CSX, CTAS, CTSH, DASH, DDOG, DXCM, EA, EXC, FANG, FAST, FER, FTNT, GEHC, GILD, GOOG, GOOGL, HON, IDXX, INSM, INTC, INTU, ISRG, KDP, KHC, KLAC, LIN, LRCX, MAR, MCHP, MDLZ, MELI, META, MNST, MPWR, MRVL, MSFT, MSTR, MU, NFLX, NVDA, NXPI, ODFL, ORLY, PANW, PAYX, PCAR, PDD, PEP, PLTR, PYPL, QCOM, REGN, ROP, ROST, SBUX, SHOP, SNDK, SNPS, STX, TMUS, TRI, TSLA, TTWO, TXN, VRSK, VRTX, WBD, WDAY, WDC, WMT, XEL, ZS
 - Date range: 2005-01-01 to 2025-12-31
 - Extraction unit: unique `ciq_company_id`, not ticker
-- Raw metadata output: `/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcript_metadata.parquet`
-- Raw component text output: `/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcripts.parquet`
-- Deduped raw component output: `/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcripts_deduped.parquet`
+- Raw metadata output: `/Users/flavio/GitHub/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcript_metadata.parquet`
+- Raw component text output: `/Users/flavio/GitHub/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcripts.parquet`
+- Deduped raw component output: `/Users/flavio/GitHub/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcripts_deduped.parquet`
 
 This stage did not clean transcript text, create `cleaned_text`, create
 `llm_text`, generate embeddings, forecast, or modify the existing AAPL processed
@@ -143,8 +143,8 @@ dataset.
 
 ## Deduplication Rule
 
-All raw candidate transcript versions are preserved in `/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcript_metadata.parquet` and
-`/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcripts.parquet`. The deduped validation file keeps one transcript per
+All raw candidate transcript versions are preserved in `/Users/flavio/GitHub/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcript_metadata.parquet` and
+`/Users/flavio/GitHub/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcripts.parquet`. The deduped validation file keeps one transcript per
 `ciq_company_id` + `key_devid` using:
 
 1. Final presentation type first, when available.

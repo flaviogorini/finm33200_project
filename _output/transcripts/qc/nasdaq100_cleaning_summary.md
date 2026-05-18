@@ -1,15 +1,15 @@
 # Full Nasdaq-100 Cleaning / Section Parsing Summary
 
-Generated: 2026-05-13T16:21:50
+Generated: 2026-05-18T01:53:47
 
 ## Scope
 
 - Scope: Full Nasdaq-100
 - Sample tickers used for manual review: AAPL, NVDA, AMZN, COST, GOOGL, ARM, APP, SNDK
-- Input: `/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcripts_deduped.parquet`
-- Cleaned components: `/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/processed/nasdaq100_cleaned_components.parquet`
-- Cleaned calls: `/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/processed/nasdaq100_cleaned_calls.parquet`
-- LLM views: `/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/processed/nasdaq100_llm_views.parquet`
+- Input: `/Users/flavio/GitHub/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcripts_deduped.parquet`
+- Cleaned components: `/Users/flavio/GitHub/finm33200_project/_data/transcripts/processed/nasdaq100_cleaned_components.parquet`
+- Cleaned calls: `/Users/flavio/GitHub/finm33200_project/_data/transcripts/processed/nasdaq100_cleaned_calls.parquet`
+- LLM views: `/Users/flavio/GitHub/finm33200_project/_data/transcripts/processed/nasdaq100_llm_views.parquet`
 - Cleaning version: `full_cleaning_v1.0`
 - Source raw dataset version: `nasdaq100_raw_frozen_20260513_155750`
 
@@ -702,6 +702,7 @@ not propagate into the deduped component input used for cleaning.
 
 | cleaning_warning                                                       |   count |
 |:-----------------------------------------------------------------------|--------:|
+| none                                                                   |    6423 |
 | no_qa_section_detected                                                 |      73 |
 | llm_text_empty; no_management_speaker_detected; no_qa_section_detected |       7 |
 | no_presentation_section_detected                                       |       6 |
@@ -721,7 +722,7 @@ follow the expected operator / management / analyst pattern.
 
 ## Recommendation
 
-Review `/Users/yujiadi/Desktop/finm33200_project/_output/transcripts/qc/nasdaq100_cleaning_manual_review.csv` for over-deletion and speaker/section correctness.
+Review `/Users/flavio/GitHub/finm33200_project/_output/transcripts/qc/nasdaq100_cleaning_manual_review.csv` for over-deletion and speaker/section correctness.
 Metadata-only calls are not emitted as empty cleaned calls or LLM inputs. The
 NVDA 2006 Q4 and 2007 Q1 calls are present in deduped metadata but absent from
 the frozen deduped component dataset; this is recorded as a raw

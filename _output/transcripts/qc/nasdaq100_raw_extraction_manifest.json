@@ -1,18 +1,18 @@
 {
-  "run_id": "nasdaq100_raw_20260513_154049",
-  "run_timestamp": "2026-05-13T15:52:09",
+  "run_id": "nasdaq100_raw_20260518_014157",
+  "run_timestamp": "2026-05-18T01:50:08",
   "input_files": {
-    "mapping": "/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/_meta/ciq_company_mapping.csv",
-    "universe": "/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/_meta/nasdaq100_constituents.csv",
-    "availability": "/Users/yujiadi/Desktop/finm33200_project/_output/transcripts/qc/transcript_availability_by_company.csv"
+    "mapping": "/Users/flavio/GitHub/finm33200_project/_data/transcripts/_meta/ciq_company_mapping.csv",
+    "universe": "/Users/flavio/GitHub/finm33200_project/_data/transcripts/_meta/nasdaq100_constituents.csv",
+    "availability": "/Users/flavio/GitHub/finm33200_project/_output/transcripts/qc/transcript_availability_by_company.csv"
   },
   "output_files": {
-    "raw_metadata": "/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcript_metadata.parquet",
-    "raw_components": "/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcripts.parquet",
-    "deduped_metadata": "/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcript_metadata_deduped.parquet",
-    "deduped_components": "/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcripts_deduped.parquet",
-    "qc": "/Users/yujiadi/Desktop/finm33200_project/_output/transcripts/qc/nasdaq100_raw_extraction_qc.csv",
-    "summary": "/Users/yujiadi/Desktop/finm33200_project/_output/transcripts/qc/nasdaq100_raw_extraction_summary.md"
+    "raw_metadata": "/Users/flavio/GitHub/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcript_metadata.parquet",
+    "raw_components": "/Users/flavio/GitHub/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcripts.parquet",
+    "deduped_metadata": "/Users/flavio/GitHub/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcript_metadata_deduped.parquet",
+    "deduped_components": "/Users/flavio/GitHub/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcripts_deduped.parquet",
+    "qc": "/Users/flavio/GitHub/finm33200_project/_output/transcripts/qc/nasdaq100_raw_extraction_qc.csv",
+    "summary": "/Users/flavio/GitHub/finm33200_project/_output/transcripts/qc/nasdaq100_raw_extraction_summary.md"
   },
   "universe_ticker_count": 101,
   "universe_as_of_date": [
@@ -446,7 +446,7 @@
   },
   "dedupe_rule": "presentation_final_then_collection_audited_proofed_edited_corrected_then_latest_creation_then_text_length",
   "schema_info": {
-    "inspection_timestamp": "2026-05-13T15:40:51",
+    "inspection_timestamp": "2026-05-18T01:41:59",
     "metadata_table": {
       "schema": "ciq",
       "table": "wrds_transcript_detail"

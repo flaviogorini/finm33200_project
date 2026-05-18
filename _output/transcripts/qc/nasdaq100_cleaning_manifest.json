@@ -1,21 +1,22 @@
 {
-  "cleaning_run_id": "full_cleaning_20260513_162150",
-  "cleaning_timestamp": "2026-05-13T16:21:50",
+  "cleaning_run_id": "full_cleaning_20260518_015347",
+  "cleaning_timestamp": "2026-05-18T01:53:47",
   "cleaning_version": "full_cleaning_v1.0",
+  "label": null,
   "inherits_from": "sample_cleaning_v0.2",
   "source_raw_dataset_version": "nasdaq100_raw_frozen_20260513_155750",
   "input_files": {
-    "raw_components": "/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcripts_deduped.parquet",
-    "raw_metadata": "/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcript_metadata_deduped.parquet"
+    "raw_components": "/Users/flavio/GitHub/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcripts_deduped.parquet",
+    "raw_metadata": "/Users/flavio/GitHub/finm33200_project/_data/transcripts/raw/nasdaq100_raw_transcript_metadata_deduped.parquet"
   },
   "output_files": {
-    "components": "/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/processed/nasdaq100_cleaned_components.parquet",
-    "calls": "/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/processed/nasdaq100_cleaned_calls.parquet",
-    "llm_views": "/Users/yujiadi/Desktop/finm33200_project/_data/transcripts/processed/nasdaq100_llm_views.parquet",
-    "qc": "/Users/yujiadi/Desktop/finm33200_project/_output/transcripts/qc/nasdaq100_cleaning_qc.csv",
-    "summary": "/Users/yujiadi/Desktop/finm33200_project/_output/transcripts/qc/nasdaq100_cleaning_summary.md",
-    "manual_review": "/Users/yujiadi/Desktop/finm33200_project/_output/transcripts/qc/nasdaq100_cleaning_manual_review.csv",
-    "manifest": "/Users/yujiadi/Desktop/finm33200_project/_output/transcripts/qc/nasdaq100_cleaning_manifest.json"
+    "components": "/Users/flavio/GitHub/finm33200_project/_data/transcripts/processed/nasdaq100_cleaned_components.parquet",
+    "calls": "/Users/flavio/GitHub/finm33200_project/_data/transcripts/processed/nasdaq100_cleaned_calls.parquet",
+    "llm_views": "/Users/flavio/GitHub/finm33200_project/_data/transcripts/processed/nasdaq100_llm_views.parquet",
+    "qc": "/Users/flavio/GitHub/finm33200_project/_output/transcripts/qc/nasdaq100_cleaning_qc.csv",
+    "summary": "/Users/flavio/GitHub/finm33200_project/_output/transcripts/qc/nasdaq100_cleaning_summary.md",
+    "manual_review": "/Users/flavio/GitHub/finm33200_project/_output/transcripts/qc/nasdaq100_cleaning_manual_review.csv",
+    "manifest": "/Users/flavio/GitHub/finm33200_project/_output/transcripts/qc/nasdaq100_cleaning_manifest.json"
   },
   "row_counts": {
     "input_component_rows": 452655,
