@@ -112,43 +112,6 @@ Other audit fixes carried in this codebase:
 
 ---
 
-## Company-data forecast — Chronos-2 backtest
-
-**Code:** [src/forecast_chronos2.py](../../src/forecast_chronos2.py),
-[src/backtest_chronos2.py](../../src/backtest_chronos2.py).
-
-We use Amazon's Chronos-2 zero-shot foundation model for time-series to
-forecast quarterly fundamentals (revenue, net_income) 4 quarters ahead for
-each `(ticker, as_of)` in a 5 × 4 grid. The forecast is probabilistic — we
-report q10 / q50 / q90 quantiles.
-
-**Point-in-time guard.** Inside `forecast_for_ticker`, the quarterly history
-fed to Chronos is filtered to `quarter_end <= as_of`. The backtest's
-`naive_yoy` baseline uses values from 4 quarters before the target quarter
-(always strictly earlier than as_of). No future information leaks.
-
-**Three forecasters compared, no composite.**
-
-| Forecaster | What it knows | Strength |
-|---|---|---|
-| Chronos-2 | Past quarterly history up to as_of | Foundation model; learns patterns from outside finance |
-| Bloomberg consensus | Sell-side analyst aggregation at as_of | Human-aware, ingests guidance + qualitative context |
-| Naive YoY | Value 4 quarters before the target quarter | Captures seasonality, cheap, hard to beat |
-
-The win-rates (Chronos vs naive, Chronos vs consensus) and calibration
-(fraction of realized values inside Chronos's q10–q90 band) are reported per
-horizon. There is no triangular composite; each comparison is read on its
-own merits.
-
-**Why this is in the project.** The FINM 33200 Chronos lecture's own
-framing was *"ok against sound statistical models, pretty well against
-naive ones."* This backtest is the rubric's *"Forecasting: held-out metrics,
-including failure cases"* evidence type made concrete. It also gives the
-decision digest a numeric grounding for the "fundamentals trajectory vs
-consensus" rationale paragraph.
-
----
-
 ## Decision digest — one-shot LLM grounding
 
 **Code:** [src/generate_digest.py](../../src/generate_digest.py).
@@ -160,9 +123,6 @@ For each `(ticker, as_of)` in the 5 × 4 grid, the digest generator:
 1. **Pre-fetches deterministically** (no agent loop):
    - Returns view: `p_up` and `y_pred` from `ckx_predictions.parquet`,
      preferring V5 GBR, falling back to V4 / V3 etc. if V5 isn't trained.
-   - Fundamentals view: 4-horizon Chronos rows from
-     `chronos2_backtest.parquet` for (ticker, as_of). Empty list ⇒ outside
-     the 5 × 4 grid; the digest's `failure_warnings` will flag it.
    - Disclosure context: top-3 chunks from the per-ticker 10-Q FAISS index
      (`_data/sec_10q/{TICKER}/10q_chunks.faiss`), PIT-filtered to
      `filing_date <= as_of`. Fixed retrieval query: *"recent material

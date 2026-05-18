@@ -1,10 +1,10 @@
 # Decision-digest examples & failure cases
 
 The decision digest is the project's tool-layer artifact: given
-`(ticker, as_of_date)`, it consumes both forecasts (returns + Chronos
-fundamentals) and a small retrieved-evidence block (10-Q + transcript
-chunks), and emits a one-shot structured digest. The full schema and prompt
-are documented in [methodology.md](../project_overview/methodology.md).
+`(ticker, as_of_date)`, it consumes the returns forecast and a small
+retrieved-evidence block (10-Q + transcript chunks), and emits a one-shot
+structured digest. The full schema and prompt are documented in
+[methodology.md](../project_overview/methodology.md).
 
 Three independent verifiers (see [eval_digest.py](../../src/eval_digest.py)):
 
@@ -36,8 +36,7 @@ on why six contrived failure cases is worse than two honest ones.
 >
 > _Then transcribe the response JSON's `rationale_*` paragraphs and one or
 > two evidence items. Frame it as "the digest correctly read the
-> disclosure context and the Chronos forecast, and the realized return
-> went the right way."_
+> disclosure context, and the realized return went the right way."_
 
 ## Failure case (placeholder)
 

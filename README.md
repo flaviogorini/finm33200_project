@@ -4,18 +4,14 @@ FINM 33200 final project. A **forecast-spine copilot** for equity analysis.
 Two forecasts feed one decision output:
 
 ```
-Returns forecast (V0a → V4 ladder)         ──┐
-                                              ├──→ Decision digest ──→ honest evaluation
-Company-data forecast (Amazon Chronos-2)   ──┘    (one-shot, not agentic)
+Returns forecast (V0a → V4 ladder)  ──→  Decision digest  ──→  honest evaluation
+                                          (one-shot, not agentic)
 ```
 
 - **Returns forecast** ([src/predict_returns_ckx.py](src/predict_returns_ckx.py))
   — five nested feature variants V0a → V4, evaluated on identical OOS rows.
   Headline metrics: rank IC (Spearman) + AUC + portfolio Sharpe. R² is
   reported but demoted (monthly-return R² is noise-bounded near zero).
-- **Company-data forecast** ([src/backtest_chronos2_fundamentals.py](src/backtest_chronos2_fundamentals.py))
-  — Amazon Chronos-2 zero-shot fundamentals forecast vs Bloomberg consensus
-  vs naive YoY, on a 5-ticker × 4-quarter backtest grid.
 - **Decision digest** ([src/generate_digest.py](src/generate_digest.py))
   — one-shot LLM call that grounds both forecasts in cited 10-Q and
   transcript chunks, emitting a structured `DigestSchema` response.
@@ -37,7 +33,6 @@ After cleaning a venv and installing requirements (see
 
 ```powershell
 doit predict_returns               # if not already current
-doit backtest_chronos2_fundamentals  # NEW; local, no API cost
 doit generate_digests              # NEW; ~$2 OpenAI cost, cached
 doit eval_digest                   # NEW; local
 streamlit run src/dashboard.py     # 5 tabs: forecast, ladder, AI timeline, snippets, portfolio
@@ -95,11 +90,10 @@ doit
 
 And that's it!
 
-## Running the AAPL panel + Chronos-2 pipeline
+## Running the AAPL panel pipeline
 
 This section walks through reproducing the unified monthly panel
-(`_data/panel_monthly.parquet`) and the zero-shot Chronos-2 fundamentals
-forecast (`_output/chronos2_forecast_AAPL_*.parquet`) from a clean checkout.
+(`_data/panel_monthly.parquet`) from a clean checkout.
 
 ### Prerequisites
 
@@ -114,8 +108,6 @@ forecast (`_output/chronos2_forecast_AAPL_*.parquet`) from a clean checkout.
   source .venv/bin/activate
   pip install -r requirements.txt
   ```
-  Note: `chronos-forecasting` pulls in `torch` (~2 GB). CPU is fine for
-  AAPL; switch `--device mps` (Apple Silicon) or `--device cuda` for speed.
 
 ### Recommended path: `doit`
 
@@ -126,7 +118,6 @@ doit pull:sec_10q_filings      # (optional) pull AAPL 10-Q filings from SEC EDGA
 doit process_10q               # (optional) clean + score + monthly 10-Q text panel
 doit process_10q:analyze       # (optional) generative-AI 10-Q analysis → V4 (needs OPENAI_API_KEY)
 doit build_panel               # join everything → _data/panel_monthly.parquet
-doit forecast_chronos2         # 4Q forecast for AAPL → _output/chronos2_forecast_AAPL_*.parquet
 doit predict_returns           # CKX-style return classifier → _output/ckx_*.parquet
 doit dashboard                 # launch the Streamlit results dashboard
 ```
@@ -167,10 +158,7 @@ python src/build_sentiment_features.py
 # 4. Assemble the unified (date, ticker) panel
 python src/build_panel.py
 
-# 5. Zero-shot Chronos-2 fundamentals forecast
-python src/forecast_chronos2.py AAPL --as-of 2024-09-30
-
-# 6. (Optional) 10-Q text features — adds 10q_* columns to the panel
+# 5. (Optional) 10-Q text features — adds 10q_* columns to the panel
 python src/pull_sec_10q_filings.py
 python src/clean_sec_10q_text.py
 python src/score_sec_10q_text.py
@@ -179,10 +167,10 @@ python src/analyze_sec_10q_llm.py            # (optional) generative-AI 10-Q ana
 python src/build_10q_monthly_panel.py
 python src/build_panel.py    # rebuild panel to include 10q_* columns
 
-# 7. CKX-style return-prediction model (V0a..V3, plus V4 once analyze has run)
+# 6. CKX-style return-prediction model (V0a..V3, plus V4 once analyze has run)
 python src/predict_returns_ckx.py
 
-# 8. (Optional) Interactive results dashboard
+# 7. (Optional) Interactive results dashboard
 streamlit run src/dashboard.py
 ```
 
@@ -199,9 +187,6 @@ streamlit run src/dashboard.py
   `10q_cosine_vs_previous`, …) — AAPL only currently,
   macro (`vix`, `treas_10y`, `dxy`, …), trailing returns
   (`ret_1m/3m/6m/12m`), and forward-return labels (`fwd_ret_1m/3m/6m/12m`).
-- `_output/chronos2_forecast_AAPL_<YYYYMMDD>.parquet` — 8 rows: 4 quarters
-  × {`revenue`, `net_income`} with `forecast_q10`, `forecast_q50`,
-  `forecast_q90`, plus Bloomberg `BEST_*` consensus side-by-side.
 - `_output/ckx_predictions.parquet`, `_output/ckx_metrics.json`,
   `_output/ckx_portfolio.parquet` — per-row OOS predictions across all
   walk-forward folds, AUC/IC headline numbers per (variant, model), and

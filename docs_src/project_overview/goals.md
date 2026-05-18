@@ -6,9 +6,8 @@ A **forecast-spine copilot** for equity analysis. Two forecasts feed one
 decision output:
 
 ```
-Returns forecast (V0a → V5 ladder)         ──┐
-                                              ├──→ Decision digest ──→ honest evaluation
-Company-data forecast (Amazon Chronos-2)   ──┘    (one-shot, not agentic)
+Returns forecast (V0a → V5 ladder)  ──→  Decision digest  ──→  honest evaluation
+                                          (one-shot, not agentic)
 ```
 
 The artifact is twofold: the two forecasts (whose accuracy is reportable on
@@ -93,10 +92,9 @@ mid-May 2026 those features had been integrated and the marginal gain from
 further V4 / V5 polish was diminishing.
 
 The project pivoted (2026-05-15) to a **forecast-spine copilot**. The
-existing return-prediction ladder became one of the two forecasts; an
-Amazon Chronos-2 fundamentals backtest became the other; and a one-shot
-LLM-authored **decision digest** was introduced to combine the two
-forecasts with cited disclosure evidence into a structured recommendation.
+existing return-prediction ladder is the returns forecast, and a one-shot
+LLM-authored **decision digest** combines the forecast with cited
+disclosure evidence into a structured recommendation.
 
 The pivot was informed by three FINM 33200 guest lectures:
 
