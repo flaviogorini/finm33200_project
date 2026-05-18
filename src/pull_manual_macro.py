@@ -39,19 +39,25 @@ description_macro = {
 }
 
 
-def _parse_banded_excel(path: Path, sheet_name: str) -> pd.DataFrame:
+def _parse_banded_excel(
+    path: Path, sheet_name: str, header_offset: int = 0
+) -> pd.DataFrame:
     """Parse a Bloomberg-style banded Excel sheet into long format.
 
-    Layout assumed:
+    Layout assumed (after skipping `header_offset` preamble rows):
       row 0  : ticker name in the first column of each block, blanks elsewhere
       row 1  : human-readable field name per column
       row 2  : Bloomberg field code per column ("Dates" in column 0)
       row 3+ : data — column 0 is the date, the rest are numeric values
                (Bloomberg N/A sentinels like "#N/A N/A" are coerced to NaN).
 
+    `header_offset` skips that many leading rows before the ticker row, for
+    sheets that carry a "Start Date" / inception-date preamble above the band.
+
     Returns a DataFrame with columns: date, ticker, field, value.
     """
     raw = pd.read_excel(path, sheet_name=sheet_name, header=None)
+    raw = raw.iloc[header_offset:].reset_index(drop=True)
 
     tickers = raw.iloc[0, 1:].ffill().astype(str).tolist()
     fields = raw.iloc[2, 1:].astype(str).tolist()

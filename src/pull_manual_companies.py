@@ -38,19 +38,22 @@ description_forecast = {
 description_hist = {
     "PX_LAST": "Last price",
     "PE_RATIO": "Trailing price / earnings ratio",
-    "SALES_REV_TURN": "Reported revenue / sales",
-    "NET_INCOME": "Reported net income",
-    "NET_DEBT": "Reported net debt",
-    "EBITDA": "Reported EBITDA",
+    "TRAIL_12M_NET_SALES": "Trailing 12-month net sales",
+    "TRAIL_12M_NET_INC": "Trailing 12-month net income",
+    "TRAIL_12M_EBITDA": "Trailing 12-month EBITDA",
 }
 
 
 def pull_manual_companies_forecast(
     manual_data_dir: Path = MANUAL_DATA_DIR,
 ) -> pd.DataFrame:
-    """Parse the Forecast sheet and return long-format DataFrame."""
+    """Parse the Forecast sheet and return long-format DataFrame.
+
+    The Forecast sheet carries a single "Start Date" preamble row above the
+    banded 3-row header, so we skip it via `header_offset=1`.
+    """
     path = Path(manual_data_dir) / COMPANIES_FILENAME
-    return _parse_banded_excel(path, FORECAST_SHEET)
+    return _parse_banded_excel(path, FORECAST_SHEET, header_offset=1)
 
 
 def pull_manual_companies_hist(
