@@ -382,11 +382,12 @@ notebook_tasks = {
             DATA_DIR / "fm_results.json",
         ],
         "targets": [
-            OUTPUT_DIR / "99_cum_returns_main.png",
-            OUTPUT_DIR / "99_cum_returns_stale_excl.png",
-            OUTPUT_DIR / "99_drawdown_main.png",
             OUTPUT_DIR / "99_hit_rates_main.png",
             OUTPUT_DIR / "99_rolling_ic.png",
+            OUTPUT_DIR / "99_cum_returns_period1_2008.png",
+            OUTPUT_DIR / "99_drawdown_period1_2008.png",
+            OUTPUT_DIR / "99_cum_returns_period2_ridge.png",
+            OUTPUT_DIR / "99_drawdown_period2_ridge.png",
         ],
     },
 }

@@ -46,6 +46,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from backtest import _summary_metrics
 from settings import config
 
 DATA_DIR = Path(config("DATA_DIR"))
@@ -125,15 +126,17 @@ summary_df
 
 
 # %% [markdown]
-# ## 3a. Return / risk metrics — main specification
+# ## 3a. Return / risk metrics — all available history per strategy
 #
 # Annualised return, annualised vol, Sharpe (zero risk-free), maximum
 # drawdown, hit rate (% of months with positive long-short return), and
-# information ratio against the equal-weighted benchmark.
+# information ratio against the equal-weighted benchmark. Each strategy
+# uses its own full history (so `n_months` differs across rows). For
+# apples-to-apples cumulative-return charts on a common window, see
+# sections 9 and 10.
 
 # %%
 RETURN_RISK_COLS = ["ann_ret", "ann_vol", "sharpe", "max_dd", "hit_rate", "ir_vs_bench", "n_months"]
-IC_COLS = ["ic_mean", "ic_std", "ic_ir", "ic_pos_frac", "ic_n_months"]
 
 
 def _return_risk_frame(metrics_block: dict) -> pd.DataFrame:
@@ -163,11 +166,11 @@ def _ic_frame(ic_block: dict) -> pd.DataFrame:
             continue
         rows.append({
             "strategy": STRATEGY_LABELS[key],
-            "ic_mean": i.get("ic_mean", np.nan),
-            "ic_std": i.get("ic_std", np.nan),
+            "spearman_ic_mean": i.get("ic_mean", np.nan),
+            "spearman_ic_std": i.get("ic_std", np.nan),
             "ic_ir": i.get("ic_ir", np.nan),
-            "ic_pos_frac": i.get("ic_pos_frac", np.nan),
-            "ic_n_months": i.get("ic_n_months", np.nan),
+            "pct_months_positive": i.get("ic_pos_frac", np.nan),
+            "n_months": i.get("ic_n_months", np.nan),
         })
     return pd.DataFrame(rows)
 
@@ -177,16 +180,22 @@ return_risk_main
 
 
 # %% [markdown]
-# ## 3b. Predictive-power (IC) metrics — main specification
+# ## 3b. Predictive-power — cross-sectional Spearman rank IC
 #
-# Cross-sectional Spearman rank correlation between signal and realised
-# 21-day forward return, computed at each rebalance date.
+# At each monthly rebalance date we compute the **Spearman rank
+# correlation** between the strategy's signal and the realised 21-day
+# forward return, taken across the cross-section of tickers available
+# that month. That single number per month is the Information
+# Coefficient (IC). The columns below summarise that monthly IC series:
 #
-# - **IC mean**: average monthly IC. Reflects whether the *full ordering*
-#   of stocks lines up with returns (vs. the long/short tails only,
-#   which is what the table above measures).
-# - **IC IR**: mean IC / std IC — analogous to a Sharpe at the
-#   cross-sectional ranking level.
+# - **spearman_ic_mean** — average monthly Spearman rank IC. Reflects
+#   whether the *full ordering* of stocks lines up with returns (the
+#   3a table only measures the top-20 vs bottom-20 tails).
+# - **spearman_ic_std** — standard deviation of the monthly IC.
+# - **ic_ir** — mean / std (a Sharpe-like ratio at the ranking level).
+# - **pct_months_positive** — share of months where IC > 0; 0.50 is the
+#   coin-flip baseline.
+# - **n_months** — number of months with a valid IC observation.
 
 # %%
 ic_main = _ic_frame(ic_summary)
@@ -194,130 +203,12 @@ ic_main
 
 
 # %% [markdown]
-# ## 4. Cumulative-return chart — main specification
-
-# %%
-def _plot_cum_returns(monthly: pd.DataFrame, title: str, save_as: Path) -> None:
-    if monthly.empty:
-        print("(no data)")
-        return
-    fig, ax = plt.subplots(figsize=(10, 5))
-    for label, grp in monthly.groupby("strategy"):
-        grp = grp.sort_values("date")
-        cum = (1.0 + grp["ret_ls"]).cumprod()
-        ax.plot(
-            grp["date"], cum, label=STRATEGY_LABELS.get(label, label),
-            color=COLOURS.get(label),
-        )
-    ax.axhline(1.0, color="grey", linewidth=0.5)
-    ax.set_ylabel("Cumulative long-short return (×, monthly compounded)")
-    ax.set_title(title)
-    ax.legend(loc="best", fontsize=8)
-    ax.grid(True, alpha=0.3)
-    fig.tight_layout()
-    fig.savefig(save_as, dpi=140, bbox_inches="tight")
-    plt.show()
-
-
-_plot_cum_returns(
-    results_main,
-    "Main specification — cumulative long-short return",
-    OUTPUT_DIR / "99_cum_returns_main.png",
-)
-
-
-# %% [markdown]
-# ## 5. Cumulative-return chart — stale-call exclusion (≤60d)
-#
-# **How the staleness filter works.** Earnings calls happen quarterly, but
-# we rebalance the portfolio every month. Between calls the signal value
-# doesn't change — we carry the most recent call's signal forward
-# unchanged through each month-end until the next call lands. So a single
-# Δ sentiment value can drive **three** rebalances before getting
-# refreshed:
-#
-# ```
-# AAPL call on Jan 15                          → fresh signal
-#   Jan-end rebalance: days_since_earnings=16  → uses Jan 15's Δ
-#   Feb-end rebalance: days_since_earnings=44  → still uses Jan 15's Δ
-#   Mar-end rebalance: days_since_earnings=75  → still uses Jan 15's Δ
-# AAPL call on Apr 15                          → fresh signal
-#   Apr-end rebalance: days_since_earnings=15  → uses Apr 15's Δ
-# ```
-#
-# The **main specification** uses all four of those months. The
-# **stale-call exclusion specification** drops any ticker whose
-# ``days_since_earnings > 60`` from that month's cross-sectional
-# ranking — so in the example above, AAPL is *excluded from the
-# Mar-end portfolio entirely* (not long, not short — just absent). The
-# long-short rule itself is unchanged; the only thing that changes is
-# the population being ranked. Some months therefore have legs that
-# shrink to fewer than 20 names per side.
-#
-# **Purpose.** Tests whether the signal is event-driven: if stale-excl
-# Sharpe > main Sharpe, the carried-forward stale signal was adding
-# noise and the signal is concentrated near the earnings event.
-#
-# **Scope of the filter.** Per spec section 8, the 60d filter applies
-# only to the three sentiment strategies (anchor, ridge, LM). Price
-# momentum and analyst revisions refresh independently every month from
-# Bloomberg, so applying ``days_since_earnings > 60`` to them would
-# shrink their universe for no methodological reason. The orchestrator
-# routes the filter accordingly — so under the stale-excl spec the
-# momentum and revisions rows in section 9a are identical to their
-# main-spec rows. Any difference between main and stale-excl for those
-# two strategies in this notebook would indicate a bug.
-
-# %%
-_plot_cum_returns(
-    results_stale,
-    "Stale-call exclusion (≤60d) — cumulative long-short return",
-    OUTPUT_DIR / "99_cum_returns_stale_excl.png",
-)
-
-
-# %% [markdown]
-# ## 6. Drawdown — running underwater curve
-#
-# For each strategy, ``drawdown_t = cum_t / running_peak_t - 1`` (always
-# ≤ 0). Shows the depth and persistence of losses over time. Flat = at a
-# new high; deep negative = sustained underperformance.
-
-# %%
-def _plot_drawdowns(monthly: pd.DataFrame, save_as: Path) -> None:
-    if monthly.empty:
-        print("(no data)")
-        return
-    fig, ax = plt.subplots(figsize=(10, 4))
-    for label, grp in monthly.groupby("strategy"):
-        grp = grp.sort_values("date")
-        cum = (1.0 + grp["ret_ls"]).cumprod()
-        peak = cum.cummax()
-        dd = cum / peak - 1.0
-        ax.plot(
-            grp["date"], dd.values, label=STRATEGY_LABELS.get(label, label),
-            color=COLOURS.get(label),
-        )
-    ax.axhline(0.0, color="grey", linewidth=0.5)
-    ax.set_ylabel("Drawdown (× from peak)")
-    ax.set_title("Running drawdown by strategy — main specification")
-    ax.legend(loc="best", fontsize=8)
-    ax.grid(True, alpha=0.3)
-    fig.tight_layout()
-    fig.savefig(save_as, dpi=140, bbox_inches="tight")
-    plt.show()
-
-
-_plot_drawdowns(results_main, OUTPUT_DIR / "99_drawdown_main.png")
-
-
-# %% [markdown]
-# ## 7. Hit rate by strategy
+# ## 4. Hit rate by strategy
 #
 # Fraction of months with positive long-short return. 50% is the
 # coin-flip baseline. A hit rate near 0.5 with a positive Sharpe means
 # the *magnitude* of wins drives the return; a higher hit rate means the
-# *frequency* of wins does.
+# *frequency* of wins does. Each bar uses each strategy's full history.
 
 # %%
 def _plot_hit_rates(metrics_block: dict, save_as: Path) -> None:
@@ -349,7 +240,11 @@ _plot_hit_rates(metrics_main, OUTPUT_DIR / "99_hit_rates_main.png")
 
 
 # %% [markdown]
-# ## 8. Rolling 12-month IC chart
+# ## 5. Rolling 12-month IC chart
+#
+# 12-month trailing mean of the monthly Spearman IC (the same per-month
+# IC summarised in section 3b). Each strategy's line begins when it
+# accumulates enough months of IC observations.
 
 # %%
 def _plot_rolling_ic(ic_ts: pd.DataFrame, save_as: Path) -> None:
@@ -380,11 +275,46 @@ _plot_rolling_ic(ic_ts, OUTPUT_DIR / "99_rolling_ic.png")
 
 
 # %% [markdown]
-# ## 9a. Robustness — main vs stale-call exclusion (≤60d)
+# ## 6. Robustness — main vs stale-call exclusion (≤60d)
 #
-# Tests whether the sentiment signals decay quickly (event-driven) or
-# survive when the most recent call is "stale" (>60d old). Stronger
-# stale-excl Sharpe = signal is concentrated near the earnings event.
+# **How the staleness filter works.** Earnings calls happen quarterly,
+# but we rebalance the portfolio every month. Between calls the signal
+# value doesn't change — we carry the most recent call's signal forward
+# unchanged through each month-end until the next call lands. So a
+# single Δ sentiment value can drive **three** rebalances before
+# getting refreshed:
+#
+# ```
+# AAPL call on Jan 15                          → fresh signal
+#   Jan-end rebalance: days_since_earnings=16  → uses Jan 15's Δ
+#   Feb-end rebalance: days_since_earnings=44  → still uses Jan 15's Δ
+#   Mar-end rebalance: days_since_earnings=75  → still uses Jan 15's Δ
+# AAPL call on Apr 15                          → fresh signal
+#   Apr-end rebalance: days_since_earnings=15  → uses Apr 15's Δ
+# ```
+#
+# The **main specification** uses all four of those months. The
+# **stale-call exclusion specification** drops any ticker whose
+# ``days_since_earnings > 60`` from that month's cross-sectional
+# ranking — so in the example above, AAPL is *excluded from the
+# Mar-end portfolio entirely* (not long, not short — just absent). The
+# long-short rule itself is unchanged; the only thing that changes is
+# the population being ranked. Some months therefore have legs that
+# shrink to fewer than 20 names per side.
+#
+# **Purpose.** Tests whether the signal is event-driven: if stale-excl
+# Sharpe > main Sharpe, the carried-forward stale signal was adding
+# noise and the signal is concentrated near the earnings event.
+#
+# **Scope of the filter.** Per spec section 8, the 60d filter applies
+# only to the three sentiment strategies (anchor, ridge, LM). Price
+# momentum and analyst revisions refresh independently every month from
+# Bloomberg, so applying ``days_since_earnings > 60`` to them would
+# shrink their universe for no methodological reason. The orchestrator
+# routes the filter accordingly — so under the stale-excl spec the
+# momentum and revisions rows below are identical to their main-spec
+# rows. Any difference between main and stale-excl for those two
+# strategies would indicate a bug.
 
 # %%
 return_risk_main_v_stale = (
@@ -400,7 +330,7 @@ return_risk_main_v_stale
 
 
 # %% [markdown]
-# ## 9b. Robustness — main vs post-2018 subsample
+# ## 7. Robustness — main vs post-2018 subsample
 
 # %%
 return_risk_main_v_post = (
@@ -416,7 +346,7 @@ return_risk_main_v_post
 
 
 # %% [markdown]
-# ## 10. Joint regression — Fama-MacBeth with Newey-West (lag 6)
+# ## 8. Joint regression — Fama-MacBeth with Newey-West (lag 6)
 #
 # At each rebalance date m, signals are z-scored across the cross-section
 # and regressed against `fwd_ret_21d`. Coefficient series are then averaged
@@ -442,6 +372,160 @@ if fm:
 else:
     fm_table = pd.DataFrame()
 fm_table
+
+
+# %% [markdown]
+# ## Common-window cumulative-return analysis
+#
+# The whole-history tables above let each strategy use every month it
+# has data for. That's fine for *summary statistics* but produces
+# misleading *cumulative-return charts*: a strategy starting in 2000
+# compounds 19 more years of returns than one starting in 2019, so the
+# endpoints aren't comparable.
+#
+# Sections 9 and 10 fix this by restricting to common windows. Metrics
+# in these sections are **recomputed** from the monthly returns over
+# the restricted window — so Sharpe / max_dd / ann_ret match what the
+# chart actually shows.
+
+# %%
+def _plot_cum_returns(monthly: pd.DataFrame, title: str, save_as: Path) -> None:
+    if monthly.empty:
+        print("(no data)")
+        return
+    fig, ax = plt.subplots(figsize=(10, 5))
+    for label, grp in monthly.groupby("strategy"):
+        grp = grp.sort_values("date")
+        cum = (1.0 + grp["ret_ls"]).cumprod()
+        ax.plot(
+            grp["date"], cum, label=STRATEGY_LABELS.get(label, label),
+            color=COLOURS.get(label),
+        )
+    ax.axhline(1.0, color="grey", linewidth=0.5)
+    ax.set_ylabel("Cumulative long-short return (×, monthly compounded)")
+    ax.set_title(title)
+    ax.legend(loc="best", fontsize=8)
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(save_as, dpi=140, bbox_inches="tight")
+    plt.show()
+
+
+def _plot_drawdowns(monthly: pd.DataFrame, title: str, save_as: Path) -> None:
+    if monthly.empty:
+        print("(no data)")
+        return
+    fig, ax = plt.subplots(figsize=(10, 4))
+    for label, grp in monthly.groupby("strategy"):
+        grp = grp.sort_values("date")
+        cum = (1.0 + grp["ret_ls"]).cumprod()
+        peak = cum.cummax()
+        dd = cum / peak - 1.0
+        ax.plot(
+            grp["date"], dd.values, label=STRATEGY_LABELS.get(label, label),
+            color=COLOURS.get(label),
+        )
+    ax.axhline(0.0, color="grey", linewidth=0.5)
+    ax.set_ylabel("Drawdown (× from peak)")
+    ax.set_title(title)
+    ax.legend(loc="best", fontsize=8)
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(save_as, dpi=140, bbox_inches="tight")
+    plt.show()
+
+
+def _period_metrics_table(
+    results: pd.DataFrame,
+    strategies: list[str],
+    start: pd.Timestamp,
+) -> pd.DataFrame:
+    rows = []
+    for s in strategies:
+        sub = results[(results["strategy"] == s) & (results["date"] >= start)].copy()
+        m = _summary_metrics(sub)
+        if not m:
+            continue
+        rows.append({
+            "strategy": STRATEGY_LABELS[s],
+            "ann_ret": m["ann_ret"],
+            "ann_vol": m["ann_vol"],
+            "sharpe": m["sharpe"],
+            "max_dd": m["max_dd"],
+            "hit_rate": m["hit_rate"],
+            "ir_vs_bench": m["ir_vs_eqweight_bench"],
+            "n_months": m["n_months"],
+        })
+    return pd.DataFrame(rows)
+
+
+# %% [markdown]
+# ## 9. Common window 1 — 2008 onwards, excluding Ridge + PCA
+#
+# Ridge + PCA only has predictions from 2019 onward (it needs a long
+# training window). Excluding it lets us look at the four traditional /
+# lexicon / anchor signals on a longer common window starting
+# 2008-01-01.
+
+# %%
+PERIOD1_START = pd.Timestamp("2008-01-01")
+PERIOD1_STRATS = ["anchor", "lm", "momentum", "revisions"]
+
+period1_table = _period_metrics_table(results_main, PERIOD1_STRATS, PERIOD1_START)
+period1_table
+
+# %%
+period1_panel = results_main[
+    results_main["strategy"].isin(PERIOD1_STRATS)
+    & (results_main["date"] >= PERIOD1_START)
+]
+_plot_cum_returns(
+    period1_panel,
+    f"Cumulative long-short return — {PERIOD1_START.date()} onwards (excl. Ridge+PCA)",
+    OUTPUT_DIR / "99_cum_returns_period1_2008.png",
+)
+
+# %%
+_plot_drawdowns(
+    period1_panel,
+    f"Drawdown — {PERIOD1_START.date()} onwards (excl. Ridge+PCA)",
+    OUTPUT_DIR / "99_drawdown_period1_2008.png",
+)
+
+
+# %% [markdown]
+# ## 10. Common window 2 — Ridge + PCA's first month onwards, all 5 strategies
+#
+# Start date is the first month for which the Ridge + PCA strategy has a
+# realised long-short return. All five strategies are plotted on this
+# common window.
+
+# %%
+ridge_rows = results_main[results_main["strategy"] == "ridge"]
+PERIOD2_START = pd.to_datetime(ridge_rows["date"]).min()
+PERIOD2_STRATS = list(STRATEGY_ORDER)
+print(f"Period 2 starts {PERIOD2_START.date()}")
+
+period2_table = _period_metrics_table(results_main, PERIOD2_STRATS, PERIOD2_START)
+period2_table
+
+# %%
+period2_panel = results_main[
+    results_main["strategy"].isin(PERIOD2_STRATS)
+    & (results_main["date"] >= PERIOD2_START)
+]
+_plot_cum_returns(
+    period2_panel,
+    f"Cumulative long-short return — {PERIOD2_START.date()} onwards (all 5 strategies)",
+    OUTPUT_DIR / "99_cum_returns_period2_ridge.png",
+)
+
+# %%
+_plot_drawdowns(
+    period2_panel,
+    f"Drawdown — {PERIOD2_START.date()} onwards (all 5 strategies)",
+    OUTPUT_DIR / "99_drawdown_period2_ridge.png",
+)
 
 
 # %% [markdown]
