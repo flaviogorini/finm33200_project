@@ -29,7 +29,16 @@ Archived contributor code lives under ``src/_archive/`` and is intentionally
 not referenced here. Conftest at repo root excludes that directory from pytest.
 """
 
+import os
 import sys
+
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+os.environ.setdefault("PYTHONUTF8", "1")
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
 
 sys.path.insert(1, "./src/")
 
