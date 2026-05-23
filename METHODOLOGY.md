@@ -20,11 +20,14 @@ transaction costs):
 
 1. **Anchor cosine on Δ sentiment** — a hand-written ten-sentence anchor set,
    cosine similarity to the call vector, quarter-over-quarter change. The
-   "LLM, but cheap" baseline.
+   "LLM, hand-anchored" approach: no labels, no training, all interpretive
+   burden carried by the choice of anchor sentences.
 2. **Ridge regression with PCA pre-reduction on Δ call vectors** — the
-   "LLM, learned" candidate. PCA(50) collapses the 1,536-D embedding delta
+   "LLM, learned" counterpart. PCA(50) collapses the 1,536-D embedding delta
    into 50 principal components before RidgeCV; `days_since_earnings` is
-   concatenated after PCA as a freshness control.
+   concatenated after PCA as a freshness control. Trained on 2012-2018, so
+   predictions only start in Feb 2019 and the test sample is shorter than
+   the other signals' by ~13 years.
 3. **Loughran–McDonald net-positivity lexicon on Δ score** — the
    classical text-NLP baseline; only Positive and Negative word lists used.
 4. **Price momentum 12-1** — the standard equity factor; included as a
@@ -59,19 +62,17 @@ Two long-running questions in empirical asset pricing motivate this project:
 - **Do modern semantic representations (LLM embeddings) extract more of that
   signal than word-counting approaches?** This is the question the recent
   S&P Global Market Intelligence whitepaper (Ao and Zhao, 2025) tackles at
-  scale for the Russell 3000, using a fine-tuned LLM that tags
-  event-cluster sentiment in transcripts. They find LLM-based sentiment
-  roughly doubles the long-short return of a Loughran–McDonald lexicon
-  baseline (8.4 % vs 4.2 %) over Feb 2010–Dec 2024.
+  scale for the Russell 3000, using a fine-tuned LLM to score transcript
+  sentiment. They find LLM-based sentiment roughly doubles the long-short
+  return of a Loughran–McDonald lexicon baseline (8.4 % vs 4.2 %) over
+  Feb 2010–Dec 2024.
 
 This project answers a much smaller version of the same question. We use a
 fixed 91-ticker universe, off-the-shelf OpenAI embeddings (no fine-tuning),
-and a single embedding pooling strategy (call-level mean). We do not attempt
-the event-cluster taxonomy that drives S&P's headline result; that level of
-LLM structured extraction is out of scope. What we *can* answer is whether,
-on this universe, a simple anchor-cosine sentiment score or a learned ridge
-model on the raw embedding deltas adds anything over a lexicon baseline and
-the standard non-text factors.
+and a single embedding pooling strategy (call-level mean). What we *can*
+answer is whether, on this universe, a simple anchor-cosine sentiment score
+or a learned ridge model on the raw embedding deltas adds anything over a
+lexicon baseline and the standard non-text factors.
 
 The project is explicitly a class deliverable and a methodological exercise.
 Survivorship bias, the small universe, the absence of trading costs, and the
@@ -87,15 +88,14 @@ The work this project most closely follows is, in order of relevance:
 
 - **S&P Global Market Intelligence — *Familiar signal, new context: The
   evolution of earnings call sentiment analysis from lexicons to LLMs*
-  (Ao and Zhao, September 2025).** Builds a fine-tuned LLM (ProntoNLP) that
-  tags ~2 million events into 110 groups / 63 clusters, computes a net
-  positivity score per (aspect, theme), and constructs long-short
-  decile-spread strategies on Russell 3000 monthly rebalances. Headline
-  result: 8.4 % annualised long-short for the LLM-based "current state,
-  financial performance" sentiment versus 4.2 % for a Loughran–McDonald
-  baseline, Feb 2010–Dec 2024. Pairwise rank correlations between their
-  LLM signals and the LM benchmark range 0.35–0.75; the LLM signal is
-  measuring the same underlying construct, but with measurable separation.
+  (Ao and Zhao, September 2025).** Builds a fine-tuned LLM (ProntoNLP)
+  that scores transcript sentiment and constructs long-short decile-spread
+  strategies on Russell 3000 monthly rebalances. Headline result: 8.4 %
+  annualised long-short for the LLM-based sentiment signal versus 4.2 %
+  for a Loughran–McDonald baseline, Feb 2010–Dec 2024. Pairwise rank
+  correlations between their LLM signals and the LM benchmark range
+  0.35–0.75; the LLM signal is measuring the same underlying construct,
+  but with measurable separation.
 - **Ghosal (2026) — *LLM-Driven Investment Models: Evidence from Earnings
   Call Transcripts*.** Uses 2019–2023 transcripts and sentence-transformer
   embeddings to forecast one-month forward returns, builds top/bottom-decile
@@ -112,12 +112,12 @@ The work this project most closely follows is, in order of relevance:
   embedding model itself having seen test-period data during training.
 
 This project differs from S&P's work in scope (91 tickers vs Russell 3000)
-and in technique (off-the-shelf embeddings + simple pooling vs fine-tuned
-LLM + event-cluster taxonomy). It differs from Ghosal (2026) primarily in
-holding a tighter universe constant and in including non-text benchmarks
-(momentum, revisions) so that LLM signals are compared not only against word
-counts but against the standard cross-sectional factors that any equity
-practitioner would already have access to.
+and in technique (off-the-shelf embeddings with a simple pooling rule, vs a
+fine-tuned LLM). It differs from Ghosal (2026) primarily in holding a
+tighter universe constant and in including non-text benchmarks (momentum,
+revisions) so that LLM signals are compared not only against word counts but
+against the standard cross-sectional factors that any equity practitioner
+would already have access to.
 
 ---
 
@@ -184,10 +184,19 @@ The five signals do not see identical row counts. The Ridge + PCA model
 relies on the embedding pipeline being run end-to-end on all 91 tickers; the
 anchor-cosine sentiment uses the same pipeline; LM lexicon needs only the
 text; momentum needs only prices; revisions need only Bloomberg estimates.
+
+The starkest asymmetry is **Ridge + PCA's shorter history**: the model is
+trained on 2012-2018 calls and only starts emitting predictions in
+**February 2019**. Every other signal in the panel extends back to the
+mid-2000s. Headline results tables in the write-up therefore show Ridge
+with ~86 months while other signals show 150–300+ months. The post-2018
+subsample (`metrics_post2018.json`) restricts every strategy to the same
+shorter window for apples-to-apples comparison.
+
 The relevant per-strategy month counts are reported in the results notebook
-(`_output/99_results.ipynb`, section 3a) and are unequal across signals — a
-fact the "common-window" sections of the notebook address directly by
-restricting to overlapping windows for the chart-level visual comparisons.
+(`_output/99_results.ipynb`, section 3a) and the "common-window" sections of
+the notebook restrict to overlapping windows for the chart-level visual
+comparisons.
 
 ---
 
@@ -249,13 +258,16 @@ hand-written "positive" and "negative" direction in embedding space.
 | Negative | "We missed expectations and guidance was below consensus." / "We are lowering our outlook due to weak demand and macro headwinds." / "Margins contracted and operating expenses rose materially." / "The quarter was disappointing with revenue declines across segments." / "We are seeing significant softness and customer pullback." |
 
 The positive and negative anchor vectors are the L2-normalised means of the
-embeddings of the five sentences in each list. The per-call score is:
+embeddings of the five sentences in each list. Let $s_{i,t}$ denote the
+per-call sentiment-diff score:
 
-$$\text{sentiment\_diff}_{i,t} = \cos(v_{i,t}, a_{\text{pos}}) - \cos(v_{i,t}, a_{\text{neg}})$$
+$$s_{i,t} = \cos(v_{i,t}, a_{\text{pos}}) - \cos(v_{i,t}, a_{\text{neg}})$$
 
-and the signal used for monthly ranking is its quarter-over-quarter change:
+The signal used for monthly ranking is its quarter-over-quarter change:
 
-$$\text{sig\_anchor}_{i,t} = \text{sentiment\_diff}_{i,t} - \text{sentiment\_diff}_{i,t-1}$$
+$$\Delta s_{i,t} = s_{i,t} - s_{i,t-1}$$
+
+(stored in the panel as column `sig_anchor`).
 
 **Why this method.** Anchor cosine is the cheapest possible way to project
 an embedding onto an interpretable direction. It does not require labels,
@@ -267,16 +279,19 @@ serious contender.
 
 ### 4.4 Strategy 2 — Ridge regression with PCA pre-reduction on Δ call vectors
 
-This is the **central LLM-method test** of the project. Rather than
-projecting onto a hand-written direction, we let supervised learning
-identify directions in embedding space that predict 21-day forward returns
-from the call date.
+Strategy 2 is the **learned-direction LLM test**: a counterpart to the
+hand-anchored Strategy 1, not a replacement for it. Strategies 1 and 2 are
+both legitimate, first-class LLM tests with different assumptions. Strategy
+1 puts all interpretive burden on ten hand-written anchor sentences;
+Strategy 2 lets supervised learning identify return-predictive directions
+in the embedding delta. They answer different questions and the comparison
+between them is itself part of the project's result.
 
 **Features.** Per call $(i, t)$:
 - $\Delta v_{i,t}$ — the 1,536-D call-vector delta (Section 4.2).
-- $\text{days\_since\_earnings}_{i,t}$ — calendar days since the prior call
-  for the same ticker, included as a freshness control so the model can
-  learn any decay structure.
+- $\tau_{i,t}$ — calendar days since the prior call for the same ticker
+  (`days_since_earnings` in the panel), included as a freshness control so
+  the model can learn any decay structure.
 
 Total: 1,537 raw features per observation.
 
@@ -351,13 +366,18 @@ The classical text-NLP baseline. For each call $(i, t)$ we tokenise the
 full transcript text (the same `full_text` view fed to the embedder),
 match each token against the LM Positive and Negative lists, and compute:
 
-$$\text{LM}_{i,t} = \frac{\text{pos}_{i,t} - \text{neg}_{i,t}}{\text{pos}_{i,t} + \text{neg}_{i,t}}$$
+Let $A_{i,t}$ and $B_{i,t}$ be the per-call counts of LM-Positive and
+LM-Negative tokens. The per-call LM net-positivity score is
+
+$$L_{i,t} = \frac{A_{i,t} - B_{i,t}}{A_{i,t} + B_{i,t}}.$$
 
 If the denominator is zero (a call with no LM-listed words) the score is
-null and the observation is dropped. As with the anchor signal, the
-monthly ranking signal is the change:
+null and the observation is dropped. As with the anchor signal, the monthly
+ranking signal is the call-to-call change
 
-$$\text{sig\_lm}_{i,t} = \text{LM}_{i,t} - \text{LM}_{i,t-1}$$
+$$\Delta L_{i,t} = L_{i,t} - L_{i,t-1}$$
+
+(stored in the panel as column `sig_lm`).
 
 Only Positive and Negative categories are used. The Uncertainty, Litigious,
 Strong_Modal, Weak_Modal, and Constraining lists are not standard
@@ -368,7 +388,7 @@ ingredients of a net-positivity score and are excluded by design.
 The standard cross-sectional momentum factor. At month-end $m$, for each
 ticker $i$:
 
-$$\text{Mom}_{i,m} = \prod_{k=2}^{12} (1 + r_{i, m-k}) - 1$$
+$$M_{i,m} = \prod_{k=2}^{12} (1 + r_{i, m-k}) - 1$$
 
 The cumulative simple monthly total return from 12 months ago to one month
 ago. The most recent month is skipped to side-step the well-known
@@ -376,18 +396,37 @@ one-month reversal effect.
 
 Computed in `build_momentum_monthly.py` and signal column `sig_mom`.
 
-### 4.7 Strategy 5 — Analyst revisions in Δ BEst Net Income
+### 4.7 Strategy 5 — Analyst revisions in Δ blended-forward net income
 
-At month-end $m$:
+Let $B_{i,m}$ denote the Bloomberg consensus `BEst Net Income` for ticker
+$i$ at month-end $m$. At month-end $m$ the signal is the 21-business-day
+percentage change:
 
-$$\text{Rev}_{i,m} = \frac{\text{BEst\_NI}_{i,m} - \text{BEst\_NI}_{i,m-21}}{\left| \text{BEst\_NI}_{i,m-21} \right|}$$
+$$R_{i,m} = \frac{B_{i,m} - B_{i,m-21}}{\left| B_{i,m-21} \right|}$$
 
-The 21-business-day change in consensus FY1 net income, normalised by
-absolute value of the prior estimate (the absolute value handles the rare
-case where the prior estimate is negative without flipping the sign of
-the revision). Net income is used rather than P/E inversion to keep the
-signal driven purely by estimate revisions, not by price moves in the
-denominator.
+The 21-business-day change in Bloomberg's consensus net income estimate,
+normalised by absolute value of the prior estimate (the absolute value
+handles the rare case where the prior estimate is negative without
+flipping the sign of the revision).
+
+**The Bloomberg field is *blended forward*, not FY1.** The
+`BEST_NET_INCOME` column pulled from the Bloomberg Terminal export is the
+`1BF` ("1-blended-forward") measure, not raw FY1 net income. By Bloomberg's
+definition (workbook `Info` sheet), `1BF` is a days-weighted blend of FY1
+and FY2:
+
+$$B = \frac{d}{D}\cdot\mathrm{FY1} + \left(1 - \frac{d}{D}\right)\cdot\mathrm{FY2}$$
+
+where $d$ = number of trading days until the next fiscal year-end and $D$
+= trading days in a year. Once the FY1 reporting date has passed, the
+blend switches to FY2 and FY3 with the same weighting scheme. This means
+that on a typical month-end the consensus we see is a smooth ~12-month
+forward estimate, not a raw FY1 number that jumps at year-ends. The 21-day
+revision picks up genuine analyst updates, not the mechanical FY1→FY2
+roll.
+
+Net income is used rather than P/E inversion to keep the signal driven
+purely by estimate revisions, not by price moves in the denominator.
 
 Computed in `build_revisions_monthly.py` and signal column `sig_rev`.
 
@@ -464,15 +503,17 @@ rebalance.
 
 To answer "after controlling for the other signals, does the LLM signal
 contribute marginal information?" we run a cross-sectional Fama-MacBeth
-regression. At each rebalance month $m$:
+regression. Let $z^k_{i,m}$ denote the monthly cross-sectional z-score of
+signal $k$ for ticker $i$ at month-end $m$, where $k$ ranges over the five
+signal columns $\{a, r, l, p, v\}$ — anchor, ridge, LM, price momentum,
+analyst revisions. At each rebalance month $m$ we run
 
-$$r_{i,m} = \alpha_m + \beta_1^m \cdot \text{sig\_anchor}_i + \beta_2^m \cdot \text{sig\_ridge}_i + \beta_3^m \cdot \text{sig\_lm}_i + \beta_4^m \cdot \text{sig\_mom}_i + \beta_5^m \cdot \text{sig\_rev}_i + \varepsilon_{i,m}$$
+$$r_{i,m} = \alpha_m + \beta^m_a z^a_{i,m} + \beta^m_r z^r_{i,m} + \beta^m_l z^l_{i,m} + \beta^m_p z^p_{i,m} + \beta^m_v z^v_{i,m} + \varepsilon_{i,m}$$
 
-All right-hand-side variables are z-scored within each month so that
-$\beta$ magnitudes are comparable. The time-series average of each $\beta^m$
-is computed, with **Newey-West standard errors at lag 6** to handle
-serial correlation in the coefficient series. Implementation in
-`src/joint_regression.py`.
+z-scoring within each month makes the $\beta$ magnitudes comparable across
+signals. The time-series average of each $\beta^m_k$ is reported with
+**Newey-West standard errors at lag 6** to handle serial correlation in
+the coefficient series. Implementation in `src/joint_regression.py`.
 
 A signal is dropped before the joint regression if its average number of
 valid cross-sectional observations per month is below 20. This is a
@@ -624,11 +665,6 @@ that loads pre-computed artifacts and renders tables / charts.
   pre-training. We do not correct for this; the embedding-as-a-feature
   formulation is more robust to it than a direct LLM-generates-forecast
   setup, but the bias is still present.
-- **No fine-tuning, no event-cluster taxonomy.** We do not replicate the
-  S&P methodology of fine-tuning an LLM to tag transcripts into 63 event
-  clusters and computing sentiment per cluster. The S&P methodology
-  almost certainly captures more signal than ours; the trade-off is cost
-  and complexity, and is out of scope.
 
 ### 8.3 Sample size
 
@@ -664,11 +700,7 @@ that loads pre-computed artifacts and renders tables / charts.
 4. **Alternative embedding models.** FinBERT, OpenAI
    `text-embedding-3-large`, sentence-transformers fine-tuned on
    financial text.
-5. **Event-cluster sentiment.** Fine-tune an LLM tagger on a labelled
-   sample of clauses to replicate the S&P (aspect, theme, polarity,
-   importance) decomposition. The most promising direction but the most
-   expensive.
-6. **Longer test period.** Re-pull transcripts pre-2012 to extend the
+5. **Longer test period.** Re-pull transcripts pre-2012 to extend the
    ridge training window backwards, which would increase the
    out-of-sample test period proportionally.
 
@@ -702,11 +734,14 @@ that loads pre-computed artifacts and renders tables / charts.
 
 For each call $(i, t)$, let $A_{i,t}$ be the count of words in the LM
 Positive list and $B_{i,t}$ the count in the LM Negative list, scanning
-the full transcript text:
+the full transcript text. The per-call score is
 
-$$\text{LM}_{i,t} = \begin{cases} \dfrac{A_{i,t} - B_{i,t}}{A_{i,t} + B_{i,t}} & \text{if } A_{i,t} + B_{i,t} > 0 \\ \text{null} & \text{if } A_{i,t} + B_{i,t} = 0 \end{cases}$$
+$$L_{i,t} = \begin{cases} \dfrac{A_{i,t} - B_{i,t}}{A_{i,t} + B_{i,t}} & \text{if } A_{i,t} + B_{i,t} > 0 \\[2pt] \text{null} & \text{if } A_{i,t} + B_{i,t} = 0 \end{cases}$$
 
-The ranking signal is $\Delta\text{LM}_{i,t} = \text{LM}_{i,t} - \text{LM}_{i,t-1}$
+and the ranking signal is the call-to-call change
+
+$$\Delta L_{i,t} = L_{i,t} - L_{i,t-1}$$
+
 where $t-1$ is the previous call for the same ticker.
 
 ### C. Output artefacts referenced in the final write-up
