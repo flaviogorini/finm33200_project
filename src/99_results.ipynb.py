@@ -53,6 +53,28 @@ DATA_DIR = Path(config("DATA_DIR"))
 OUTPUT_DIR = Path(config("OUTPUT_DIR"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+plt.rcParams.update({
+    "figure.dpi": 100,
+    "savefig.dpi": 140,
+    "savefig.bbox": "tight",
+    "font.family": "DejaVu Sans",
+    "font.size": 11,
+    "axes.titlesize": 13,
+    "axes.titleweight": "semibold",
+    "axes.labelsize": 11,
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+    "axes.grid": True,
+    "grid.color": "#cccccc",
+    "grid.linewidth": 0.6,
+    "grid.alpha": 0.7,
+    "xtick.labelsize": 10,
+    "ytick.labelsize": 10,
+    "legend.fontsize": 10,
+    "legend.frameon": False,
+    "lines.linewidth": 1.8,
+})
+
 STRATEGY_LABELS = {
     "anchor": "1. Anchor cosine (LLM)",
     "ridge": "2. Ridge + PCA (LLM)",
@@ -61,12 +83,14 @@ STRATEGY_LABELS = {
     "revisions": "5. Analyst revisions",
 }
 STRATEGY_ORDER = list(STRATEGY_LABELS)
+# Okabe-Ito palette: colorblind-friendly. LLM strategies (anchor, ridge) share
+# a blue family; the three traditional signals get distinct hues.
 COLOURS = {
-    "anchor": "#1f77b4",
-    "ridge": "#ff7f0e",
-    "lm": "#2ca02c",
-    "momentum": "#9467bd",
-    "revisions": "#8c564b",
+    "anchor": "#0072B2",     # deep blue   — LLM family
+    "ridge": "#56B4E9",      # sky blue    — LLM family
+    "lm": "#D55E00",         # vermillion  — traditional / lexicon
+    "momentum": "#009E73",   # bluish green
+    "revisions": "#CC79A7",  # reddish purple
 }
 
 
@@ -221,18 +245,18 @@ def _plot_hit_rates(metrics_block: dict, save_as: Path) -> None:
         return
     labels, vals = zip(*rows)
     colours = [COLOURS[k] for k in STRATEGY_ORDER if k in metrics_block]
-    fig, ax = plt.subplots(figsize=(8, 4))
+    fig, ax = plt.subplots(figsize=(10, 5))
     ax.bar(range(len(labels)), vals, color=colours)
     ax.axhline(0.5, color="grey", linewidth=0.8, linestyle="--", label="coin-flip (0.5)")
     ax.set_xticks(range(len(labels)))
-    ax.set_xticklabels(labels, rotation=20, ha="right", fontsize=8)
+    ax.set_xticklabels(labels, rotation=20, ha="right")
     ax.set_ylabel("Hit rate (fraction of months > 0)")
     ax.set_title("Hit rate by strategy — main specification")
     ax.set_ylim(0.0, 1.0)
-    ax.legend(loc="upper right", fontsize=8)
-    ax.grid(True, alpha=0.3, axis="y")
+    ax.legend(loc="upper right")
+    ax.grid(axis="y")
     fig.tight_layout()
-    fig.savefig(save_as, dpi=140, bbox_inches="tight")
+    fig.savefig(save_as)
     plt.show()
 
 
@@ -253,7 +277,7 @@ def _plot_rolling_ic(ic_ts: pd.DataFrame, save_as: Path) -> None:
         return
     ic = ic_ts.copy()
     ic["date"] = pd.to_datetime(ic["date"])
-    fig, ax = plt.subplots(figsize=(10, 4))
+    fig, ax = plt.subplots(figsize=(12, 5))
     for label, grp in ic.groupby("strategy"):
         grp = grp.sort_values("date").set_index("date")
         rolling = grp["ic"].rolling(12, min_periods=6).mean()
@@ -264,10 +288,9 @@ def _plot_rolling_ic(ic_ts: pd.DataFrame, save_as: Path) -> None:
     ax.axhline(0.0, color="grey", linewidth=0.5)
     ax.set_ylabel("Rolling 12-month mean IC (Spearman)")
     ax.set_title("Cross-sectional IC — rolling 12-month average")
-    ax.legend(loc="best", fontsize=8)
-    ax.grid(True, alpha=0.3)
+    ax.legend(loc="best")
     fig.tight_layout()
-    fig.savefig(save_as, dpi=140, bbox_inches="tight")
+    fig.savefig(save_as)
     plt.show()
 
 
@@ -393,7 +416,7 @@ def _plot_cum_returns(monthly: pd.DataFrame, title: str, save_as: Path) -> None:
     if monthly.empty:
         print("(no data)")
         return
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = plt.subplots(figsize=(12, 5.5))
     for label, grp in monthly.groupby("strategy"):
         grp = grp.sort_values("date")
         cum = (1.0 + grp["ret_ls"]).cumprod()
@@ -404,10 +427,9 @@ def _plot_cum_returns(monthly: pd.DataFrame, title: str, save_as: Path) -> None:
     ax.axhline(1.0, color="grey", linewidth=0.5)
     ax.set_ylabel("Cumulative long-short return (×, monthly compounded)")
     ax.set_title(title)
-    ax.legend(loc="best", fontsize=8)
-    ax.grid(True, alpha=0.3)
+    ax.legend(loc="best")
     fig.tight_layout()
-    fig.savefig(save_as, dpi=140, bbox_inches="tight")
+    fig.savefig(save_as)
     plt.show()
 
 
@@ -415,7 +437,7 @@ def _plot_drawdowns(monthly: pd.DataFrame, title: str, save_as: Path) -> None:
     if monthly.empty:
         print("(no data)")
         return
-    fig, ax = plt.subplots(figsize=(10, 4))
+    fig, ax = plt.subplots(figsize=(12, 5))
     for label, grp in monthly.groupby("strategy"):
         grp = grp.sort_values("date")
         cum = (1.0 + grp["ret_ls"]).cumprod()
@@ -428,10 +450,9 @@ def _plot_drawdowns(monthly: pd.DataFrame, title: str, save_as: Path) -> None:
     ax.axhline(0.0, color="grey", linewidth=0.5)
     ax.set_ylabel("Drawdown (× from peak)")
     ax.set_title(title)
-    ax.legend(loc="best", fontsize=8)
-    ax.grid(True, alpha=0.3)
+    ax.legend(loc="best")
     fig.tight_layout()
-    fig.savefig(save_as, dpi=140, bbox_inches="tight")
+    fig.savefig(save_as)
     plt.show()
 
 
