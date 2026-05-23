@@ -4,10 +4,13 @@ like a Makefile, but is Python-based.
 Pipeline (run ``doit list`` to see all tasks):
 
     config                Create _data/ + _output/
+    build_meta:universe   Wikipedia -> Nasdaq-100 constituents CSV
+    build_meta:ciq_mapping  WRDS metadata -> CIQ company-ID mapping CSV
     pull:manual_macro     Bloomberg macro Excel -> parquet
     pull:manual_companies Bloomberg per-company Excel -> parquet (PX_LAST, BEst NI, ...)
     pull:transcripts      WRDS Capital IQ Nasdaq-100 transcript bulk pull (slow)
     clean:transcripts     Clean + segment transcripts -> processed parquet
+    cleaning_review       QC review of cleaned transcripts -> _output/transcripts/qc/
     freeze:transcripts    Cleaned-dataset freeze manifest
     build_sentiment:embed   Chunk + embed transcripts (OpenAI)
     build_sentiment:score   Cosine-vs-anchor scoring -> sentiment_transcripts.parquet
@@ -23,10 +26,9 @@ Pipeline (run ``doit list`` to see all tasks):
     run_backtests                 5 strategies x 3 specs + IC time series
     joint_regression              Fama-MacBeth + Newey-West (HAC lag 6)
     run_notebooks                 Jupytext convert + execute + html for 99_results
+    write_report                  Render reports/writeup.qmd to reports/writeup.html
     run_pytest                    Tests + calendar parity assertion
 
-Archived contributor code lives under ``src/_archive/`` and is intentionally
-not referenced here. Conftest at repo root excludes that directory from pytest.
 """
 
 import os
@@ -96,6 +98,34 @@ def task_config():
         "targets": [DATA_DIR, OUTPUT_DIR],
         "file_dep": ["./src/settings.py"],
         "clean": [],
+    }
+
+
+def task_build_meta():
+    """Universe and CIQ-mapping metadata (run once; both need internet / WRDS)."""
+    yield {
+        "name": "universe",
+        "doc": "Parse the current Nasdaq-100 constituents table from Wikipedia",
+        "actions": [_py("build_nasdaq100_universe.py")],
+        "file_dep": ["./src/build_nasdaq100_universe.py"],
+        "targets": [META_DIR / "nasdaq100_constituents.csv"],
+        "clean": True,
+        "verbosity": 2,
+    }
+    yield {
+        "name": "ciq_mapping",
+        "doc": (
+            "Map Nasdaq-100 tickers to Capital IQ company IDs via WRDS metadata. "
+            "Needs WRDS_USERNAME in .env or ~/.pgpass."
+        ),
+        "actions": [_py("build_ciq_company_mapping.py")],
+        "file_dep": [
+            "./src/build_ciq_company_mapping.py",
+            str(META_DIR / "nasdaq100_constituents.csv"),
+        ],
+        "targets": [META_DIR / "ciq_company_mapping.csv"],
+        "clean": True,
+        "verbosity": 2,
     }
 
 
@@ -187,6 +217,23 @@ def task_freeze_transcripts():
         "file_dep": [
             "./src/freeze_cleaned_dataset.py",
             str(PROCESSED_DIR / "nasdaq100_cleaned_calls.parquet"),
+        ],
+        "clean": True,
+    }
+
+
+def task_cleaning_review():
+    """QC review package over the cleaned transcripts (read-only)."""
+    return {
+        "actions": [_py("build_cleaning_final_review.py")],
+        "file_dep": [
+            "./src/build_cleaning_final_review.py",
+            str(PROCESSED_DIR / "nasdaq100_cleaned_components.parquet"),
+            str(PROCESSED_DIR / "nasdaq100_cleaned_calls.parquet"),
+            str(PROCESSED_DIR / "nasdaq100_llm_views.parquet"),
+        ],
+        "targets": [
+            QC_DIR / "nasdaq100_cleaning_final_review_summary.md",
         ],
         "clean": True,
     }
@@ -430,8 +477,33 @@ def task_run_notebooks():
         }
 
 
+def task_write_report():
+    """Render reports/writeup.qmd to reports/writeup.html via Quarto."""
+    qmd = Path("./reports/writeup.qmd")
+    html = Path("./reports/writeup.html")
+    return {
+        "actions": [f"quarto render {qmd} --to html"],
+        "file_dep": [
+            str(qmd),
+            str(DATA_DIR / "metrics_main.json"),
+            str(DATA_DIR / "metrics_stale_excl.json"),
+            str(DATA_DIR / "metrics_post2018.json"),
+            str(DATA_DIR / "ic_summary.json"),
+            str(DATA_DIR / "fm_results.json"),
+            str(OUTPUT_DIR / "99_hit_rates_main.png"),
+            str(OUTPUT_DIR / "99_rolling_ic.png"),
+            str(OUTPUT_DIR / "99_cum_returns_period1_2008.png"),
+            str(OUTPUT_DIR / "99_cum_returns_period2_ridge.png"),
+            str(OUTPUT_DIR / "99_drawdown_period2_ridge.png"),
+        ],
+        "targets": [str(html)],
+        "clean": True,
+        "verbosity": 2,
+    }
+
+
 def task_run_pytest():
-    """Run pytest (excludes src/_archive/ via top-level conftest.py)."""
+    """Run pytest on the src/ test files."""
     test_output = OUTPUT_DIR / "pytest_results.xml"
 
     def run_pytest():
