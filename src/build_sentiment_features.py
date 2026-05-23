@@ -29,6 +29,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from calendar_utils import month_end_bd
 from settings import config
 
 DATA_DIR = Path(config("DATA_DIR"))
@@ -55,10 +56,11 @@ def _build_monthly_for_ticker(calls: pd.DataFrame) -> pd.DataFrame:
 
     first = calls["event_date"].min()
     # Cover from the first month with sentiment to today (or last call + 1Y, whichever larger).
+    # Business month-end matches the rebalance calendar used by every other
+    # signal in build_signal_panel — calendar month-end would miss any month
+    # whose 30/31st falls on a weekend and silently drop the row at merge.
     end = max(pd.Timestamp.today().normalize(), calls["event_date"].max() + pd.DateOffset(months=12))
-    months = pd.date_range(
-        start=(first - pd.offsets.MonthEnd(0)), end=end, freq="ME"
-    )
+    months = month_end_bd(first - pd.offsets.MonthEnd(0), end)
 
     # For each month-end, find the last call with event_date <= month_end.
     event_dates = calls["event_date"].to_numpy()
