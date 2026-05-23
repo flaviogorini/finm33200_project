@@ -520,11 +520,9 @@ def task_run_pytest():
         "actions": [run_pytest],
         "targets": [test_output],
         "file_dep": [
-            "./src/misc_tools.py",
-            "./src/test_misc_tools.py",
             "./src/calendar_utils.py",
             "./src/backtest.py",
-            "./conftest.py",
+            "./src/test_backtest_engine.py",
         ],
         "clean": True,
         "verbosity": 2,

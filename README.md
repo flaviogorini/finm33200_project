@@ -18,7 +18,6 @@ The project is **comparative**, not absolute: universe, holding period, ranking 
 
 - [`reports/writeup.html`](reports/writeup.html) — the audience-facing write-up. Motivation, signal taxonomy, headline results, robustness checks, limitations. Self-contained HTML; open it directly.
 - [`METHODOLOGY.md`](METHODOLOGY.md) — methodology spec. Every transformation, hyperparameter, and choice with rationale.
-- [`gen ai project.md`](gen%20ai%20project.md) — authoritative project scope document (universe, five strategies, data inventory).
 - [`_output/99_results.html`](_output/99_results.html) — auto-rendered results notebook with all tables and charts.
 - [`AI_USAGE.md`](AI_USAGE.md) — disclosure of AI tools used in the product and in development.
 
@@ -43,8 +42,9 @@ The repo uses a `conda` env named `genai_project`. Replace the interpreter path 
 
 - Python 3.12, the dependencies in `requirements.txt`.
 - [Quarto](https://quarto.org/docs/get-started/) on the PATH for the write-up step (e.g. `brew install --cask quarto-cli` on macOS).
-- An OpenAI API key in `.env` (`OPENAI_API_KEY=...`) **only** if you intend to rebuild embeddings from raw text. The repo ships with `_data/embeddings_transcripts.parquet` precomputed.
-- A WRDS Capital IQ subscription is required only if you intend to re-pull raw transcripts from scratch. Cleaned transcripts are also bundled.
+- A WRDS Capital IQ subscription to pull the raw earnings-call transcripts.
+- An OpenAI API key in `.env` (`OPENAI_API_KEY=...`) to embed the transcripts via `text-embedding-3-small`.
+- The Bloomberg workbook under [`data_manual/`](data_manual/) ships with the repo (prices, BEst Net Income consensus, the Loughran-McDonald dictionary). The transcript, embedding, and signal-panel parquets under `_data/` are gitignored and rebuilt by the pipeline.
 
 **Install dependencies**
 
