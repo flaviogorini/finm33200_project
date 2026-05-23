@@ -729,8 +729,7 @@ where $t-1$ is the previous call for the same ticker.
 
 - **PLS regression on Δ call vectors** — tested, mean CV $r^2$ ~0.004,
   long-short Sharpe −0.06. Code removed before merge.
-- **10-Q SEC pipeline** — archived under `src/_archive/`. The original
-  project scaffold pointed at 10-Q text; the agreed scope is earnings-call
-  transcripts only.
+- **10-Q SEC pipeline** — removed. The original project scaffold pointed at
+  10-Q text; the agreed scope is earnings-call transcripts only.
 - **Chronos forecasting** — earlier exploratory code removed entirely
   (not just archived).
