@@ -1,6 +1,6 @@
 ---
 title: "LLM embeddings vs. traditional sentiment on earnings calls"
-subtitle: "A comparative backtest on a 91-ticker Nasdaq-100 universe"
+subtitle: "A comparative backtest on a 100-ticker Nasdaq-100 universe"
 author: "FINM 33200 final project"
 date: "2026-05-23"
 format:
@@ -125,9 +125,9 @@ Earnings calls are the densest periodic information event in equity markets. A t
 
 This project asks a narrow version of a long-running empirical-asset-pricing question: **do modern LLM embeddings of earnings-call transcripts carry cross-sectional return information beyond what a traditional lexicon and the standard non-text factors already provide?** The recent S&P Global Market Intelligence whitepaper (Ao and Zhao, 2025) tackles the same question at Russell-3000 scale with a fine-tuned LLM and reports the LLM signal roughly doubles a Loughran-McDonald lexicon baseline. We replicate the *shape* of that question on a smaller, fully reproducible setting:
 
-- **Universe:** 91 Nasdaq-100 tickers with ≥10 years of transcript history. Fixed list, no point-in-time membership.
+- **Universe:** 100 Nasdaq-100 tickers drawn from the current index membership. Fixed list, no point-in-time membership.
 - **Embeddings:** off-the-shelf OpenAI `text-embedding-3-small`, no fine-tuning.
-- **Backtest machinery:** identical across all five signals — monthly rebalance, top-20 / bottom-20 equal-weighted long-short, 21-trading-day holding period, no transaction costs.
+- **Backtest machinery:** identical across all five signals — monthly rebalance, top-quintile / bottom-quintile equal-weighted long-short (top and bottom 20 % of valid signal values each month), 21-trading-day holding period, no transaction costs.
 
 The project is **comparative**, not absolute. Universe, holding period, ranking rule, and benchmark are identical across signals; what differs is the signal value used to rank stocks at each month-end. Statements made below about a signal's performance are statements about its rank position relative to the four others on this universe, on this window, under this spec — not claims about a deployable trading strategy.
 
@@ -205,9 +205,9 @@ where $d$ is the number of trading days until the next fiscal year-end and $D$ i
 
 ### 3.1 Universe
 
-91 Nasdaq tickers, hand-selected by applying a "minimum 10 years of transcript history" filter to the current Nasdaq-100 membership. The list is **fixed across the entire backtest period** — no point-in-time index reconstitution. Every signal sees the same 91 names every month.
+100 Nasdaq tickers drawn from current Nasdaq-100 membership. The list is **fixed across the entire backtest period** — no point-in-time index reconstitution. The transcript-derived signals (anchor, ridge, LM) cover the 100 names; the price- and Bloomberg-derived signals (momentum, revisions) cover one additional name where coverage allows.
 
-**Survivorship bias.** Names that delisted, were acquired, or fell out of the index do not appear. Bias should largely cancel in the *relative* comparison across signals (they all see the same 91 tickers), but symmetry of bias across signals is an assumption, not a verified property, and is named in §6.
+**Survivorship bias.** Names that delisted, were acquired, or fell out of the index do not appear. Bias should largely cancel in the *relative* comparison across signals (they all see substantially the same universe), but symmetry of bias across signals is an assumption, not a verified property, and is named in §6.
 
 ### 3.2 Transcripts — what we pull and what we do with them
 
@@ -258,12 +258,12 @@ _return_risk(metrics_main)
 - **Sharpe** — annualised return ÷ annualised vol, with zero risk-free rate.
 - **Max DD** — worst peak-to-trough drawdown on the cumulative long-short series.
 - **Hit rate** — share of months with positive long-short return. 50 % = coin-flip.
-- **IR vs. bench** — *Information Ratio* against the benchmark. The benchmark is the **equal-weighted return of the 91-ticker universe** (not the cap-weighted Nasdaq-100; equal-weight matches how the long and short legs are themselves weighted). Specifically: $\text{IR} = \text{mean}(r_{LS} - r_{\text{bench}}) \cdot 12 \big/ \text{std}(r_{LS} - r_{\text{bench}}) \cdot \sqrt{12}$. The long-short series is dollar-neutral while the universe drifted up over the sample, so the difference $r_{LS} - r_{\text{bench}}$ is mechanically negative on average — every IR row is therefore negative. The comparative reading is *which signal's IR is least negative*, not the sign in isolation.
+- **IR vs. bench** — *Information Ratio* against the benchmark. The benchmark is the **equal-weighted return of the universe with non-null signal that month** (not the cap-weighted Nasdaq-100; equal-weight matches how the long and short legs are themselves weighted). Specifically: $\text{IR} = \text{mean}(r_{LS} - r_{\text{bench}}) \cdot 12 \big/ \text{std}(r_{LS} - r_{\text{bench}}) \cdot \sqrt{12}$. The long-short series is dollar-neutral while the universe drifted up over the sample, so the difference $r_{LS} - r_{\text{bench}}$ is mechanically negative on average — every IR row is therefore negative. The comparative reading is *which signal's IR is least negative*, not the sign in isolation.
 - **Months** — number of monthly observations behind the row.
 
 ### 4.2 Cross-sectional Spearman rank IC
 
-The Information Coefficient (IC) at month $m$ is the Spearman rank correlation between the signal value and the realised 21-day forward return across the cross-section that month. It measures whether the **full ordering** of stocks lined up with returns — a complement to the long-short return, which depends only on the top-20 and bottom-20 tails.
+The Information Coefficient (IC) at month $m$ is the Spearman rank correlation between the signal value and the realised 21-day forward return across the cross-section that month. It measures whether the **full ordering** of stocks lined up with returns — a complement to the long-short return, which depends only on the top-quintile and bottom-quintile tails.
 
 ```{python}
 # | label: tbl-ic
@@ -272,7 +272,7 @@ _ic_table(ic_summary)
 
 ### 4.3 Hit rate by strategy
 
-The fraction of **rebalance months** in which the long-short return was positive. Each month produces one number per strategy — the equal-weighted average return of the top-20 names minus the equal-weighted average return of the bottom-20 names over the 21-day holding period — and the hit rate counts what share of those monthly numbers came out greater than zero. A hit rate of 0.55 therefore means "in 55 out of every 100 months, the long leg outperformed the short leg".
+The fraction of **rebalance months** in which the long-short return was positive. Each month produces one number per strategy — the equal-weighted average return of the top-quintile names minus the equal-weighted average return of the bottom-quintile names over the 21-day holding period — and the hit rate counts what share of those monthly numbers came out greater than zero. A hit rate of 0.55 therefore means "in 55 out of every 100 months, the long leg outperformed the short leg".
 
 A couple of things this metric is *not*: it is not the share of individual stocks in the long leg that beat their benchmark, and it is symmetric on the sign — a $-5 \%$ month and a $+0.01 \%$ month both count identically. 50 % is the coin-flip baseline. A hit rate near 0.5 paired with a positive Sharpe means the *magnitude* of wins drives the return (a few big winners offset many small losers); a higher hit rate paired with a modest Sharpe means the *frequency* of wins does (steady small wins).
 
@@ -351,8 +351,8 @@ _fm_table(fm)
 
 ## 6. Limitations
 
-- **Survivorship bias.** The 91-ticker universe is current Nasdaq-100 members with ≥10 years of transcript history. Names that delisted or fell out of the index are excluded by construction. Bias should largely (but not perfectly) cancel in the *relative* comparison; differential effects across signals are possible and untested.
-- **Small universe and short OOS.** 91 tickers, 20-name legs, and a ridge test window of ~7 years (2019–2025) all limit statistical power. A claim like "Sharpe of A is twice B's" is much weaker on 91 names than on the Russell 3000.
+- **Survivorship bias.** The 100-ticker universe is drawn from current Nasdaq-100 membership. Names that delisted or fell out of the index are excluded by construction. Bias should largely (but not perfectly) cancel in the *relative* comparison; differential effects across signals are possible and untested.
+- **Small universe and short OOS.** 100 tickers, quintile legs (16–20 names typically), and a ridge test window of ~7 years (2019–2025) all limit statistical power. A claim like "Sharpe of A is twice B's" is much weaker on 100 names than on the Russell 3000.
 - **No transaction costs.** Defensible as a comparative test (turnover is similar across strategies on a monthly cadence) but not as a deployable-strategy claim.
 - **Single embedding model.** Only `text-embedding-3-small` is tested. FinBERT, larger OpenAI embedders, or sentence-transformers fine-tuned on financial text are not compared.
 - **Anchor sentences unvalidated.** Different anchors yield different scores; no sensitivity sweep on the choice of the five-on-five anchor set.

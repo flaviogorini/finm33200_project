@@ -39,7 +39,7 @@ So the only place a model produces something we don't fully understand is the em
 | Backtest machinery ([src/backtest.py](src/backtest.py), [src/run_backtests.py](src/run_backtests.py)) | Moderate | Each metric formula reviewed against [METHODOLOGY.md § 5](METHODOLOGY.md) |
 | Ridge model design ([src/train_ridge.py](src/train_ridge.py)) | Moderate | Train/test boundary, $\alpha$ grid, PCA components chosen by the author |
 | Signal definitions, anchor sentences, methodology choices | None | Author-authored |
-| The five interpretation choices that drive the results (delta vs level, carry-forward, 60-day stale filter, top-20 / bottom-20 legs, no transaction costs) | None | Author-authored |
+| The five interpretation choices that drive the results (delta vs level, carry-forward, 60-day stale filter, top-quintile / bottom-quintile legs, no transaction costs) | None | Author-authored |
 | Quarto write-up prose ([reports/writeup.qmd](reports/writeup.qmd)), [METHODOLOGY.md](METHODOLOGY.md) | Moderate (drafting), heavy (formatting) | Every numerical claim verified against the rendered notebook / JSON files |
 
 ## 3. How outputs were checked

@@ -4,7 +4,7 @@ All five strategies in the project (anchor-cosine, ridge, LM, momentum,
 analyst revisions) feed into ``run_backtest``. The function is purely
 mechanical: it takes a monthly panel with a signal column and a 21-bday
 forward-return column, ranks the cross-section at each rebalance date,
-forms a top-20 long / bottom-20 short equal-weight portfolio, and reports
+forms a top-quintile long / bottom-quintile short equal-weight portfolio, and reports
 the monthly return series plus aggregate metrics.
 
 ``compute_ic`` is the corresponding cross-sectional Spearman rank
@@ -14,9 +14,10 @@ rebalance date.
 Backtest convention (matches spec section 6 and project calendar
 conventions):
     - Rebalance frequency: monthly (last business day of month).
-    - Long: top 20 of 100 tickers by signal value.
-    - Short: bottom 20.
-    - Weighting: equal within each leg (5% per stock per leg).
+    - Long: top quintile (top 20% of valid signal values each month,
+      ``round(n * 0.20)`` names).
+    - Short: bottom quintile.
+    - Weighting: equal within each leg (1/n_leg per stock).
     - Holding period: 21 trading days — already baked into ``fwd_ret_21d``.
     - Transaction costs: zero.
     - If a ticker is missing the signal at month m, it is excluded from
