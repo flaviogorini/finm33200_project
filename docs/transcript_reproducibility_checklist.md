@@ -12,8 +12,8 @@ transcript datasets that are too large for ordinary GitHub commits.
 - `src/clean_sample_transcripts.py`
 - `src/build_cleaning_final_review.py`
 - `src/freeze_cleaned_dataset.py`
-- `_data/transcripts/_meta/nasdaq100_constituents.csv`
-- `_data/transcripts/_meta/ciq_company_mapping.csv`
+- `data_manual/_meta/nasdaq100_constituents.csv`
+- `data_manual/_meta/ciq_company_mapping.csv`
 - `_output/transcripts/qc/nasdaq100_raw_dataset_frozen_manifest.json`
 - `_output/transcripts/qc/nasdaq100_cleaned_dataset_frozen_manifest.json`
 - `_output/transcripts/qc/nasdaq100_cleaned_dataset_freeze_report.md`
@@ -95,7 +95,7 @@ python src/check_transcript_mapping_availability.py
 # The script name is historical; use --label nasdaq100 for the full run.
 TICKERS=$(python - <<'PY'
 import pandas as pd
-mapping = pd.read_csv("_data/transcripts/_meta/ciq_company_mapping.csv")
+mapping = pd.read_csv("data_manual/_meta/ciq_company_mapping.csv")
 print(" ".join(mapping["ticker"].astype(str).str.upper().tolist()))
 PY
 )
@@ -130,8 +130,8 @@ pip install -r requirements.txt
 # unique ciq_company_id for extraction.
 python src/extract_sample_raw_transcripts.py \
   --label nasdaq100_min10y \
-  --mapping-path _data/transcripts/_meta/ciq_company_mapping_min10y_coverage.csv \
-  --universe-path _data/transcripts/_meta/nasdaq100_constituents_min10y_coverage.csv \
+  --mapping-path data_manual/_meta/ciq_company_mapping_min10y_coverage.csv \
+  --universe-path data_manual/_meta/nasdaq100_constituents_min10y_coverage.csv \
   --schema-output-path _output/transcripts/qc/nasdaq100_min10y_schema_inspection.json \
   --start-date 2005-01-01 \
   --end-date 2025-12-31

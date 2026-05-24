@@ -6,6 +6,10 @@
 # Exclude _data folder, since it should all be pulled automatically (unless in the manual folder)
 /_data/*
 
+# Inside data_manual/_meta the CSV inputs (universe + CIQ mapping) ARE tracked,
+# but the diagnostic schema_inspection JSONs the pipeline drops alongside them are not.
+data_manual/_meta/*_schema_inspection.json
+
 # Exclude _output directory since it's should generated automatically
 /_output/*
 

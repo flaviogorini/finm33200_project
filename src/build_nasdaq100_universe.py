@@ -17,7 +17,8 @@ from settings import config
 
 
 DATA_DIR = Path(config("DATA_DIR"))
-META_DIR = DATA_DIR / "transcripts" / "_meta"
+MANUAL_DATA_DIR = Path(config("MANUAL_DATA_DIR"))
+META_DIR = MANUAL_DATA_DIR / "_meta"
 OUTPUT_PATH = META_DIR / "nasdaq100_constituents.csv"
 
 SOURCE_URL = "https://en.wikipedia.org/wiki/Nasdaq-100"

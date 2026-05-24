@@ -21,9 +21,10 @@ from settings import config
 
 
 DATA_DIR = Path(config("DATA_DIR"))
+MANUAL_DATA_DIR = Path(config("MANUAL_DATA_DIR"))
 OUTPUT_DIR = Path(config("OUTPUT_DIR"))
 
-META_DIR = DATA_DIR / "transcripts" / "_meta"
+META_DIR = MANUAL_DATA_DIR / "_meta"
 QC_DIR = OUTPUT_DIR / "transcripts" / "qc"
 
 UNIVERSE_PATH = META_DIR / "nasdaq100_constituents.csv"

@@ -62,7 +62,10 @@ USER = environ.get("USER") or environ.get("USERNAME", "")
 
 PROCESSED_DIR = DATA_DIR / "transcripts" / "processed"
 RAW_DIR = DATA_DIR / "transcripts" / "raw"
-META_DIR = DATA_DIR / "transcripts" / "_meta"
+# Hand-maintained inputs (Nasdaq-100 constituents, CIQ company-ID mapping)
+# live with the other manual data, NOT under _data/ which is treated as
+# regenerable output.
+META_DIR = MANUAL_DATA_DIR / "_meta"
 QC_DIR = OUTPUT_DIR / "transcripts" / "qc"
 
 
@@ -356,21 +359,6 @@ def task_build_features():
     }
 
 
-def task_build_panel():
-    """Unified monthly signal panel (date × ticker → 5 sigs + fwd_ret_21d)."""
-    return {
-        "actions": [_py("build_signal_panel.py")],
-        "file_dep": [
-            "./src/build_signal_panel.py",
-            str(DATA_DIR / "returns_monthly.parquet"),
-            str(DATA_DIR / "momentum_monthly.parquet"),
-            str(DATA_DIR / "revisions_monthly.parquet"),
-        ],
-        "targets": [DATA_DIR / "signal_panel_monthly.parquet"],
-        "clean": True,
-    }
-
-
 def task_train_ridge():
     """RidgeCV with expanding-window refits on Δ call vectors (Strategy 2)."""
     return {
@@ -382,6 +370,32 @@ def task_train_ridge():
             str(DATA_DIR / "US_Companies_Hist_Data.parquet"),
         ],
         "targets": [DATA_DIR / "ridge_predictions.parquet"],
+        "clean": True,
+    }
+
+
+def task_build_panel():
+    """Unified monthly signal panel (date × ticker → 5 sigs + fwd_ret_21d).
+
+    Declares file_dep on every per-signal input so doit forces all signal
+    producers (build_sentiment, build_signals:lm, train_ridge,
+    build_features:returns/momentum/revisions) to complete before the panel
+    is assembled. Without these, a fresh `doit` run could schedule
+    build_panel before train_ridge and produce a panel with `sig_ridge`
+    silently all-NaN.
+    """
+    return {
+        "actions": [_py("build_signal_panel.py")],
+        "file_dep": [
+            "./src/build_signal_panel.py",
+            str(DATA_DIR / "returns_monthly.parquet"),
+            str(DATA_DIR / "momentum_monthly.parquet"),
+            str(DATA_DIR / "revisions_monthly.parquet"),
+            str(DATA_DIR / "features_sentiment_monthly.parquet"),
+            str(DATA_DIR / "lm_scores_transcripts.parquet"),
+            str(DATA_DIR / "ridge_predictions.parquet"),
+        ],
+        "targets": [DATA_DIR / "signal_panel_monthly.parquet"],
         "clean": True,
     }
 

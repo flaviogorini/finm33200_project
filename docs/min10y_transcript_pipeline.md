@@ -12,8 +12,8 @@ the full current Nasdaq-100 universe.
 
 Core universe inputs:
 
-- `_data/transcripts/_meta/ciq_company_mapping_min10y_coverage.csv`
-- `_data/transcripts/_meta/nasdaq100_constituents_min10y_coverage.csv`
+- `data_manual/_meta/ciq_company_mapping_min10y_coverage.csv`
+- `data_manual/_meta/nasdaq100_constituents_min10y_coverage.csv`
 
 The min10y mapping has 91 ticker rows but 90 unique company IDs. GOOG and
 GOOGL share the same Capital IQ company ID, so extraction is done at the
@@ -32,8 +32,8 @@ Equivalent expanded command:
 ```bash
 python src/extract_sample_raw_transcripts.py \
   --label nasdaq100_min10y \
-  --mapping-path _data/transcripts/_meta/ciq_company_mapping_min10y_coverage.csv \
-  --universe-path _data/transcripts/_meta/nasdaq100_constituents_min10y_coverage.csv \
+  --mapping-path data_manual/_meta/ciq_company_mapping_min10y_coverage.csv \
+  --universe-path data_manual/_meta/nasdaq100_constituents_min10y_coverage.csv \
   --schema-output-path _output/transcripts/qc/nasdaq100_min10y_schema_inspection.json \
   --start-date 2005-01-01 \
   --end-date 2025-12-31
@@ -41,8 +41,8 @@ python src/extract_sample_raw_transcripts.py \
 
 Inputs:
 
-- `_data/transcripts/_meta/ciq_company_mapping_min10y_coverage.csv`
-- `_data/transcripts/_meta/nasdaq100_constituents_min10y_coverage.csv`
+- `data_manual/_meta/ciq_company_mapping_min10y_coverage.csv`
+- `data_manual/_meta/nasdaq100_constituents_min10y_coverage.csv`
 - WRDS credentials through `.env` or environment variables
 - Capital IQ transcript access through WRDS
 
