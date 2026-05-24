@@ -17,14 +17,19 @@ from settings import config
 
 
 DATA_DIR = Path(config("DATA_DIR"))
+MANUAL_DATA_DIR = Path(config("MANUAL_DATA_DIR"))
 OUTPUT_DIR = Path(config("OUTPUT_DIR"))
 QC_DIR = OUTPUT_DIR / "transcripts" / "qc"
+META_DIR = MANUAL_DATA_DIR / "_meta"
 
 COMPONENTS_PATH = DATA_DIR / "transcripts" / "processed" / "nasdaq100_cleaned_components.parquet"
 CALLS_PATH = DATA_DIR / "transcripts" / "processed" / "nasdaq100_cleaned_calls.parquet"
 VIEWS_PATH = DATA_DIR / "transcripts" / "processed" / "nasdaq100_llm_views.parquet"
 
-RAW_FROZEN_MANIFEST_PATH = QC_DIR / "nasdaq100_raw_dataset_frozen_manifest.json"
+# Hand-frozen raw-dataset provenance manifest. Lives with manual inputs, not
+# under _output/, because no current script regenerates it — it is read-only
+# provenance metadata that ships with the repo.
+RAW_FROZEN_MANIFEST_PATH = META_DIR / "nasdaq100_raw_dataset_frozen_manifest.json"
 CLEANING_QC_PATH = QC_DIR / "nasdaq100_cleaning_qc.csv"
 CLEANING_SUMMARY_PATH = QC_DIR / "nasdaq100_cleaning_summary.md"
 CLEANING_MANIFEST_PATH = QC_DIR / "nasdaq100_cleaning_manifest.json"

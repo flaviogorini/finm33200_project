@@ -212,21 +212,12 @@ def task_clean_transcripts():
     }
 
 
-def task_freeze_transcripts():
-    """Write the cleaned-dataset freeze manifest."""
-    return {
-        "actions": [_py("freeze_cleaned_dataset.py")],
-        "targets": [QC_DIR / "nasdaq100_cleaned_dataset_frozen_manifest.json"],
-        "file_dep": [
-            "./src/freeze_cleaned_dataset.py",
-            str(PROCESSED_DIR / "nasdaq100_cleaned_calls.parquet"),
-        ],
-        "clean": True,
-    }
-
-
 def task_cleaning_review():
-    """QC review package over the cleaned transcripts (read-only)."""
+    """QC review package over the cleaned transcripts (read-only).
+
+    Produces the 4 needs-review CSVs that ``freeze_transcripts`` then reads.
+    Declared BEFORE ``freeze_transcripts`` so doit schedules it first.
+    """
     return {
         "actions": [_py("build_cleaning_final_review.py")],
         "file_dep": [
@@ -237,6 +228,37 @@ def task_cleaning_review():
         ],
         "targets": [
             QC_DIR / "nasdaq100_cleaning_final_review_summary.md",
+            QC_DIR / "nasdaq100_cleaning_needs_review_calls.csv",
+            QC_DIR / "nasdaq100_metadata_component_gap_calls.csv",
+            QC_DIR / "nasdaq100_high_word_drop_calls.csv",
+            QC_DIR / "nasdaq100_no_qa_calls.csv",
+        ],
+        "clean": True,
+    }
+
+
+def task_freeze_transcripts():
+    """Write the cleaned-dataset freeze manifest.
+
+    Reads the 4 needs-review CSVs from ``cleaning_review`` plus the hand-frozen
+    raw provenance manifest from ``data_manual/_meta/``.
+    """
+    return {
+        "actions": [_py("freeze_cleaned_dataset.py")],
+        "targets": [
+            QC_DIR / "nasdaq100_cleaned_dataset_frozen_manifest.json",
+            QC_DIR / "nasdaq100_cleaned_dataset_freeze_report.md",
+        ],
+        "file_dep": [
+            "./src/freeze_cleaned_dataset.py",
+            str(PROCESSED_DIR / "nasdaq100_cleaned_calls.parquet"),
+            str(QC_DIR / "nasdaq100_cleaning_qc.csv"),
+            str(QC_DIR / "nasdaq100_cleaning_manifest.json"),
+            str(QC_DIR / "nasdaq100_cleaning_needs_review_calls.csv"),
+            str(QC_DIR / "nasdaq100_metadata_component_gap_calls.csv"),
+            str(QC_DIR / "nasdaq100_high_word_drop_calls.csv"),
+            str(QC_DIR / "nasdaq100_no_qa_calls.csv"),
+            str(MANUAL_DATA_DIR / "_meta" / "nasdaq100_raw_dataset_frozen_manifest.json"),
         ],
         "clean": True,
     }
