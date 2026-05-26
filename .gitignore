@@ -6,6 +6,10 @@
 # Exclude _data folder, since it should all be pulled automatically (unless in the manual folder)
 /_data/*
 
+# Invariance / regression-test snapshot dirs (regenerable mirrors of _data/)
+/_data_baseline/
+/_data_*_snapshot/
+
 # Inside data_manual/_meta the CSV inputs (universe + CIQ mapping) ARE tracked,
 # but the diagnostic schema_inspection JSONs the pipeline drops alongside them are not.
 data_manual/_meta/*_schema_inspection.json
@@ -23,6 +27,11 @@ data_manual/_meta/*_schema_inspection.json
 
 # Per-user Claude Code settings — never commit these
 .claude/settings.local.json
+
+# Claude Code / Claudikins per-user runtime state (session hooks, locks)
+.claude/.gitkeep
+.claude/*.lock
+.claude/execute-state.json*
 
 # Other
 temp*.csv

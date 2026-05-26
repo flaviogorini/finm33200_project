@@ -1,4 +1,4 @@
-"""Run the five backtests across three specifications and persist results.
+"""Run the six backtests across three specifications and persist results.
 
 Driven by the unified signal panel (``_data/signal_panel_monthly.parquet``).
 Loops over every strategy that's present in the panel, runs three
@@ -43,15 +43,17 @@ STRATEGIES: dict[str, str] = {
     "lm": "sig_lm",
     "momentum": "sig_mom",
     "revisions": "sig_rev",
+    "car3": "sig_car3",
 }
 
-# The stale-call filter only makes sense for the three sentiment strategies
-# that carry an earnings-call signal forward each month. Momentum and
-# analyst revisions refresh independently every month from Bloomberg, so
-# applying days_since_earnings > 60 to them would shrink their universe
-# for no methodological reason (and would not match spec section 8, which
-# says the filter applies to the "three sentiment strategies").
-TRANSCRIPT_STRATEGIES: set[str] = {"anchor", "ridge", "lm"}
+# The stale-call filter applies to per-call signals that are carried forward
+# from earnings event dates. Momentum and analyst revisions refresh
+# independently every month from Bloomberg, so applying
+# ``days_since_earnings > 60`` to them would shrink their universe for no
+# methodological reason. CAR3, like anchor/ridge/lm, is an earnings-event
+# signal carried forward up to the next call; the stale_excl spec applies
+# to it for the same reason.
+TRANSCRIPT_STRATEGIES: set[str] = {"anchor", "ridge", "lm", "car3"}
 
 SPECIFICATIONS: dict[str, dict] = {
     "main": {},

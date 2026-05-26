@@ -473,15 +473,41 @@ def task_train_ridge():
     }
 
 
+def task_build_factor_baseline():
+    """FF5 monthly factors + per-call CAR3 for the §5.6 nested α progression.
+
+    Produces ff5_monthly.parquet (HTTP fetch from Ken French) and
+    car3_per_call.parquet (announcement-window CAR computed from existing
+    daily prices). Both feed the v2 writeup: car3_per_call gets carried
+    forward into the signal panel as sig_car3; ff5_monthly is the RHS
+    factor set for factor_regression.
+    """
+    return {
+        "actions": [_py("build_factor_baseline.py")],
+        "file_dep": [
+            "./src/build_factor_baseline.py",
+            "./src/calendar_utils.py",
+            "./src/build_returns_monthly.py",
+            str(DATA_DIR / "US_Companies_Hist_Data.parquet"),
+            str(DATA_DIR / "lm_scores_transcripts.parquet"),
+        ],
+        "targets": [
+            DATA_DIR / "ff5_monthly.parquet",
+            DATA_DIR / "car3_per_call.parquet",
+        ],
+        "clean": True,
+    }
+
+
 def task_build_panel():
-    """Unified monthly signal panel (date × ticker → 5 sigs + fwd_ret_21d).
+    """Unified monthly signal panel (date × ticker → 6 sigs + fwd_ret_21d).
 
     Declares file_dep on every per-signal input so doit forces all signal
     producers (build_sentiment, build_signals:lm, train_ridge,
-    build_features:returns/momentum/revisions) to complete before the panel
-    is assembled. Without these, a fresh `doit` run could schedule
-    build_panel before train_ridge and produce a panel with `sig_ridge`
-    silently all-NaN.
+    build_features:returns/momentum/revisions, build_factor_baseline) to
+    complete before the panel is assembled. Without these, a fresh `doit`
+    run could schedule build_panel before train_ridge and produce a panel
+    with `sig_ridge` silently all-NaN.
     """
     return {
         "actions": [_py("build_signal_panel.py")],
@@ -493,6 +519,7 @@ def task_build_panel():
             str(DATA_DIR / "features_sentiment_monthly.parquet"),
             str(DATA_DIR / "lm_scores_transcripts.parquet"),
             str(DATA_DIR / "ridge_predictions.parquet"),
+            str(DATA_DIR / "car3_per_call.parquet"),
         ],
         "targets": [DATA_DIR / "signal_panel_monthly.parquet"],
         "clean": True,
@@ -535,6 +562,28 @@ def task_joint_regression():
     }
 
 
+def task_factor_regression():
+    """Nested time-series α progression on FF5 + Mom + CAR3 + Rev for §5.6.
+
+    For each text strategy in {ridge, anchor, lm}, runs 4 nested OLS regressions
+    of the strategy's monthly LS return on a growing factor set. HAC SE
+    (Newey-West, lag 6). Reports own-history AND post-2018 sample windows.
+    """
+    return {
+        "actions": [_py("factor_regression.py")],
+        "file_dep": [
+            "./src/factor_regression.py",
+            str(DATA_DIR / "ff5_monthly.parquet"),
+            str(DATA_DIR / "results_main.parquet"),
+        ],
+        "targets": [
+            DATA_DIR / "strategy_factor_returns_monthly.parquet",
+            DATA_DIR / "factor_alpha.json",
+        ],
+        "clean": True,
+    }
+
+
 notebook_tasks = {
     "99_results.ipynb.py": {
         "path": Path("./src/99_results.ipynb.py"),
@@ -557,6 +606,33 @@ notebook_tasks = {
             OUTPUT_DIR / "99_drawdown_period1_2008.png",
             OUTPUT_DIR / "99_cum_returns_period2_ridge.png",
             OUTPUT_DIR / "99_drawdown_period2_ridge.png",
+        ],
+    },
+    "99_results_v2.ipynb.py": {
+        "path": Path("./src/99_results_v2.ipynb.py"),
+        "file_dep": [
+            DATA_DIR / "signal_panel_monthly.parquet",
+            DATA_DIR / "metrics_main.json",
+            DATA_DIR / "metrics_stale_excl.json",
+            DATA_DIR / "metrics_post2018.json",
+            DATA_DIR / "results_main.parquet",
+            DATA_DIR / "results_stale_excl.parquet",
+            DATA_DIR / "results_post2018.parquet",
+            DATA_DIR / "ic_timeseries.parquet",
+            DATA_DIR / "ic_summary.json",
+            DATA_DIR / "fm_results.json",
+            DATA_DIR / "factor_alpha.json",
+            DATA_DIR / "strategy_factor_returns_monthly.parquet",
+        ],
+        "targets": [
+            OUTPUT_DIR / "99_v2_hit_rates_main.png",
+            OUTPUT_DIR / "99_v2_rolling_ic.png",
+            OUTPUT_DIR / "99_v2_cum_returns_period1_2008.png",
+            OUTPUT_DIR / "99_v2_drawdown_period1_2008.png",
+            OUTPUT_DIR / "99_v2_cum_returns_period2_ridge.png",
+            OUTPUT_DIR / "99_v2_drawdown_period2_ridge.png",
+            DATA_DIR / "signal_corr_stock.json",
+            DATA_DIR / "signal_corr_portfolio.json",
         ],
     },
 }
@@ -610,6 +686,41 @@ def task_write_report():
             str(OUTPUT_DIR / "99_cum_returns_period1_2008.png"),
             str(OUTPUT_DIR / "99_cum_returns_period2_ridge.png"),
             str(OUTPUT_DIR / "99_drawdown_period2_ridge.png"),
+        ],
+        "targets": [str(html)],
+        "clean": True,
+        "verbosity": 2,
+    }
+
+
+def task_write_report_v2():
+    """Render reports/writeup_v2.qmd to reports/writeup_v2.html via Quarto.
+
+    v2 adds CAR3 as a 6th first-class signal, §5.4 signal correlations,
+    and §5.6 nested time-series α progression. The v1 writeup at
+    reports/writeup.html stays untouched as the 5-signal reference.
+    """
+    qmd = Path("./reports/writeup_v2.qmd")
+    html = Path("./reports/writeup_v2.html")
+    _configure_quarto_env()
+    quarto = _find_quarto()
+    return {
+        "actions": [f"{quarto} render {qmd} --to html"],
+        "file_dep": [
+            str(qmd),
+            str(DATA_DIR / "metrics_main.json"),
+            str(DATA_DIR / "metrics_stale_excl.json"),
+            str(DATA_DIR / "metrics_post2018.json"),
+            str(DATA_DIR / "ic_summary.json"),
+            str(DATA_DIR / "fm_results.json"),
+            str(DATA_DIR / "factor_alpha.json"),
+            str(DATA_DIR / "signal_corr_stock.json"),
+            str(DATA_DIR / "signal_corr_portfolio.json"),
+            str(OUTPUT_DIR / "99_v2_hit_rates_main.png"),
+            str(OUTPUT_DIR / "99_v2_rolling_ic.png"),
+            str(OUTPUT_DIR / "99_v2_cum_returns_period1_2008.png"),
+            str(OUTPUT_DIR / "99_v2_cum_returns_period2_ridge.png"),
+            str(OUTPUT_DIR / "99_v2_drawdown_period2_ridge.png"),
         ],
         "targets": [str(html)],
         "clean": True,

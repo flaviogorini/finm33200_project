@@ -49,7 +49,7 @@ OUTPUT_FILENAME = "fm_results.json"
 NW_LAGS = 6
 RETURN_COL = "fwd_ret_21d"
 DATE_COL = "date"
-ALL_SIGNALS: list[str] = ["sig_anchor", "sig_ridge", "sig_lm", "sig_mom", "sig_rev"]
+ALL_SIGNALS: list[str] = ["sig_anchor", "sig_ridge", "sig_lm", "sig_mom", "sig_rev", "sig_car3"]
 
 
 def _z_score(group: pd.DataFrame, cols: list[str]) -> pd.DataFrame:

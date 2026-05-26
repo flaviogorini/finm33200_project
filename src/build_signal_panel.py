@@ -14,6 +14,7 @@ Inputs (all optional except returns):
     _data/momentum_monthly.parquet         -> sig_mom (mom_12_1)
     _data/revisions_monthly.parquet        -> sig_rev (rev_30d)
     _data/ridge_predictions.parquet        -> sig_ridge (carried fwd from event_date)
+    _data/car3_per_call.parquet            -> sig_car3 (carried fwd from event_date)
 
 Output:
     _data/signal_panel_monthly.parquet
@@ -21,7 +22,7 @@ Output:
 Schema:
     date, ticker,
     fwd_ret_21d, px_eom,
-    sig_anchor, sig_lm, sig_mom, sig_rev, sig_ridge,
+    sig_anchor, sig_lm, sig_mom, sig_rev, sig_ridge, sig_car3,
     days_since_earnings   (calendar days since most-recent earnings call;
                            only place calendar days appear in the project)
 
@@ -158,9 +159,23 @@ def build(data_dir: Path = DATA_DIR) -> pd.DataFrame:
     else:
         panel["sig_ridge"] = np.nan
 
+    car3 = _load_optional(data_dir / "car3_per_call.parquet")
+    if car3 is not None and not car3.empty:
+        car3 = car3.copy()
+        car3["ticker"] = car3["ticker"].astype(str).str.upper()
+        car3["event_date"] = pd.to_datetime(car3["event_date"])
+        car3_monthly = _carry_forward_per_call(
+            car3.dropna(subset=["car3"]),
+            value_col="car3",
+            rebalance_dates=rebalance_dates,
+        ).rename(columns={"car3": "sig_car3"}).drop(columns="days_since_earnings")
+        panel = panel.merge(car3_monthly, on=["date", "ticker"], how="left")
+    else:
+        panel["sig_car3"] = np.nan
+
     ordered = [
         "date", "ticker", "px_eom", "fwd_ret_21d",
-        "sig_anchor", "sig_ridge", "sig_lm", "sig_mom", "sig_rev",
+        "sig_anchor", "sig_ridge", "sig_lm", "sig_mom", "sig_rev", "sig_car3",
         "days_since_earnings",
     ]
     return panel[[c for c in ordered if c in panel.columns]].sort_values(
@@ -181,7 +196,7 @@ def main() -> None:
     print(f"\nWrote {n:,} rows -> {out}")
     print(f"Tickers: {panel['ticker'].nunique()}")
     print(f"Date range: {panel['date'].min().date()} -> {panel['date'].max().date()}")
-    for col in ["sig_anchor", "sig_ridge", "sig_lm", "sig_mom", "sig_rev", "fwd_ret_21d"]:
+    for col in ["sig_anchor", "sig_ridge", "sig_lm", "sig_mom", "sig_rev", "sig_car3", "fwd_ret_21d"]:
         if col in panel.columns:
             print(f"  {col:>12s} non-null: {panel[col].notna().sum():>6,d} / {n:,}")
 
