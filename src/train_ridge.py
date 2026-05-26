@@ -47,7 +47,7 @@ from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import StandardScaler
 
 from build_returns_monthly import _strip_bbg_suffix
-from calendar_utils import EXEC_GAP_BDAYS, HOLDING_BDAYS, fwd_ret_bd
+from calendar_utils import fwd_ret_event_calmonth
 from settings import config
 
 DATA_DIR = Path(config("DATA_DIR"))
@@ -103,16 +103,20 @@ def load_daily_prices(data_dir: Path = DATA_DIR) -> dict[str, pd.Series]:
 
 
 def build_xy(deltas: pd.DataFrame, prices_by_ticker: dict[str, pd.Series]) -> pd.DataFrame:
-    """Add y_true (21-bday fwd return) and the stacked X matrix."""
+    """Add y_true (calendar-month forward return from event_date close to
+    BME at-or-after event_date + 1 month) and the stacked X matrix.
+
+    v3 change vs v2: target is now ``fwd_ret_event_calmonth`` instead of
+    ``fwd_ret_bd(h=21, gap=1)``. Anchored to per-call event dates with a
+    calendar-month horizon, matching the monthly backtest's holding period.
+    """
     y_vals: list[float] = []
     for _, row in deltas.iterrows():
         s = prices_by_ticker.get(row["ticker"])
         if s is None:
             y_vals.append(float("nan"))
             continue
-        y_vals.append(
-            fwd_ret_bd(s, row["event_date"], h=HOLDING_BDAYS, gap=EXEC_GAP_BDAYS)
-        )
+        y_vals.append(fwd_ret_event_calmonth(s, row["event_date"]))
     out = deltas.copy()
     out["y_true"] = y_vals
     out = out.dropna(subset=["y_true"]).reset_index(drop=True)

@@ -183,26 +183,46 @@ def task_config():
 
 
 def task_build_meta():
-    """Universe and CIQ-mapping metadata (run once; both need internet / WRDS)."""
+    """v3 universe + CIQ-mapping metadata (needs WRDS)."""
     yield {
-        "name": "universe",
-        "doc": "Parse the current Nasdaq-100 constituents table from Wikipedia",
-        "actions": [_py("build_nasdaq100_universe.py")],
-        "file_dep": ["./src/build_nasdaq100_universe.py"],
-        "targets": [META_DIR / "nasdaq100_constituents.csv"],
+        "name": "historical_universe",
+        "doc": (
+            "v3: pull historical Nasdaq-100 constituent intervals from "
+            "Compustat (gvkeyx='000208'). Needs WRDS."
+        ),
+        "actions": [_py("pull_historical_nasdaq100.py")],
+        "file_dep": ["./src/pull_historical_nasdaq100.py"],
+        "targets": [META_DIR / "nasdaq100_historical_constituents.csv"],
+        "clean": True,
+        "verbosity": 2,
+    }
+    yield {
+        "name": "pit_panel",
+        "doc": (
+            "v3: build the BME-indexed (date, ticker, in_universe) panel "
+            "from the historical constituent CSV."
+        ),
+        "actions": [_py("build_pit_universe_panel.py")],
+        "file_dep": [
+            "./src/build_pit_universe_panel.py",
+            "./src/calendar_utils.py",
+            str(META_DIR / "nasdaq100_historical_constituents.csv"),
+        ],
+        "targets": [META_DIR / "nasdaq100_pit_panel.parquet"],
         "clean": True,
         "verbosity": 2,
     }
     yield {
         "name": "ciq_mapping",
         "doc": (
-            "Map Nasdaq-100 tickers to Capital IQ company IDs via WRDS metadata. "
-            "Needs WRDS_USERNAME in .env or ~/.pgpass."
+            "Map ever-member tickers to Capital IQ company IDs via WRDS. "
+            "Phase 4 of v3: extended in src/build_ciq_company_mapping.py to "
+            "consume the historical constituent CSV."
         ),
         "actions": [_py("build_ciq_company_mapping.py")],
         "file_dep": [
             "./src/build_ciq_company_mapping.py",
-            str(META_DIR / "nasdaq100_constituents.csv"),
+            str(META_DIR / "nasdaq100_historical_constituents.csv"),
         ],
         "targets": [META_DIR / "ciq_company_mapping.csv"],
         "clean": True,
@@ -521,6 +541,8 @@ def task_build_panel():
             str(DATA_DIR / "lm_scores_transcripts.parquet"),
             str(DATA_DIR / "ridge_predictions.parquet"),
             str(DATA_DIR / "car3_per_call.parquet"),
+            # v3: the PIT panel becomes part of the signal panel's `in_universe` column.
+            str(META_DIR / "nasdaq100_pit_panel.parquet"),
         ],
         "targets": [DATA_DIR / "signal_panel_monthly.parquet"],
         "clean": True,

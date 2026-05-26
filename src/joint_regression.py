@@ -4,7 +4,7 @@ Per spec section 9:
     1. At each rebalance date m, z-score every signal across the
        cross-section so coefficients are comparable in magnitude.
     2. Run a monthly OLS:
-           fwd_ret_21d ~ z_anchor + z_ridge + z_lm + z_mom + z_rev
+           fwd_ret_1m ~ z_anchor + z_ridge + z_lm + z_mom + z_rev
        (intercept included).
     3. Time-series average each coefficient. Report Newey-West standard
        errors via statsmodels (HAC, lag = 6).
@@ -47,7 +47,7 @@ DATA_DIR = Path(config("DATA_DIR"))
 PANEL_FILENAME = "signal_panel_monthly.parquet"
 OUTPUT_FILENAME = "fm_results.json"
 NW_LAGS = 6
-RETURN_COL = "fwd_ret_21d"
+RETURN_COL = "fwd_ret_1m"
 DATE_COL = "date"
 ALL_SIGNALS: list[str] = ["sig_anchor", "sig_ridge", "sig_lm", "sig_mom", "sig_rev", "sig_car3"]
 

@@ -1,23 +1,24 @@
-"""Build the monthly returns panel from Bloomberg PX_LAST.
+"""Build the monthly returns panel from Bloomberg PX_LAST (v3 calendar-month).
 
 Reads ``_data/US_Companies_Hist_Data.parquet`` (long format, the output of
 ``pull_manual_companies.py``), filters to ``PX_LAST``, snaps to the
 business-month-end rebalance calendar, and writes the per-ticker monthly
-price + 21-trading-day forward return panel.
+price + 1-calendar-month forward return panel.
 
 Output:
     _data/returns_monthly.parquet
 
 Schema:
-    date          last business day of the calendar month
-    ticker        upper-case, ' US Equity' suffix stripped
-    px_eom        PX_LAST at that rebalance date (or last available <=)
-    fwd_ret_21d   forward 21-bday return: enter T+1, exit T+22
+    date         last business day of the calendar month (BME)
+    ticker       upper-case, ' US Equity' suffix stripped
+    px_eom       PX_LAST at the BME (or last available <=)
+    fwd_ret_1m   forward 1-calendar-month return: close BME(T) → close BME(T+1)
 
-Forward return uses :func:`calendar_utils.fwd_ret_bd` so the value is
-exactly the same quantity used as the ridge regression target and the
-backtest holding-period return. There is no other forward-horizon
-definition anywhere in the project.
+v3 change vs v2: the forward-return column is now ``fwd_ret_1m`` (calendar
+month) instead of ``fwd_ret_21d`` (21 BDays). This is the single source of
+truth for the backtest's holding-period return and aligns directly with
+Ken French's monthly FF5 publication, eliminating v2's §5.6 timestamp-shift
+hack.
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from calendar_utils import EXEC_GAP_BDAYS, HOLDING_BDAYS, fwd_ret_bd, month_end_bd
+from calendar_utils import fwd_ret_calmonth, month_end_bd
 from settings import config
 
 DATA_DIR = Path(config("DATA_DIR"))
@@ -68,13 +69,17 @@ def _ticker_panel(prices: pd.DataFrame, rebalance_dates: pd.DatetimeIndex) -> pd
 
     px_eom = series.reindex(rebalance_dates, method="ffill")
     fwd_ret = pd.Series(
-        [fwd_ret_bd(series, d, h=HOLDING_BDAYS, gap=EXEC_GAP_BDAYS) for d in rebalance_dates],
+        [fwd_ret_calmonth(series, d) for d in rebalance_dates],
         index=rebalance_dates,
     )
 
-    out = pd.DataFrame({"date": rebalance_dates, "px_eom": px_eom.to_numpy(), "fwd_ret_21d": fwd_ret.to_numpy()})
+    out = pd.DataFrame({
+        "date": rebalance_dates,
+        "px_eom": px_eom.to_numpy(),
+        "fwd_ret_1m": fwd_ret.to_numpy(),
+    })
     out["ticker"] = prices["ticker"].iloc[0]
-    return out[["date", "ticker", "px_eom", "fwd_ret_21d"]]
+    return out[["date", "ticker", "px_eom", "fwd_ret_1m"]]
 
 
 def build(data_dir: Path = DATA_DIR) -> pd.DataFrame:
@@ -103,8 +108,8 @@ def main() -> None:
     print(f"Wrote {len(panel):,} rows -> {out}")
     print(f"Tickers ({panel['ticker'].nunique()})")
     print(f"Date range: {panel['date'].min().date()} -> {panel['date'].max().date()}")
-    n_fwd = panel["fwd_ret_21d"].notna().sum()
-    print(f"Non-null fwd_ret_21d: {n_fwd:,} / {len(panel):,}")
+    n_fwd = panel["fwd_ret_1m"].notna().sum()
+    print(f"Non-null fwd_ret_1m: {n_fwd:,} / {len(panel):,}")
     print(panel.head().to_string(index=False))
 
 

@@ -7,12 +7,12 @@ source). Signal panels are left-joined so the grid is preserved even if
 a strategy's panel is missing or partial.
 
 Inputs (all optional except returns):
-    _data/returns_monthly.parquet          (REQUIRED) -> fwd_ret_21d, px_eom
+    _data/returns_monthly.parquet          (REQUIRED) -> fwd_ret_1m, px_eom
     _data/features_sentiment_monthly.parquet -> sig_anchor (sentiment_diff_qoq),
                                                 days_since_earnings
     _data/lm_scores_transcripts.parquet    -> sig_lm (lm_delta, carried fwd)
     _data/momentum_monthly.parquet         -> sig_mom (mom_12_1)
-    _data/revisions_monthly.parquet        -> sig_rev (rev_30d)
+    _data/revisions_monthly.parquet        -> sig_rev (rev_1m)
     _data/ridge_predictions.parquet        -> sig_ridge (carried fwd from event_date)
     _data/car3_per_call.parquet            -> sig_car3 (carried fwd from event_date)
 
@@ -21,7 +21,7 @@ Output:
 
 Schema:
     date, ticker,
-    fwd_ret_21d, px_eom,
+    fwd_ret_1m, px_eom,
     sig_anchor, sig_lm, sig_mom, sig_rev, sig_ridge, sig_car3,
     days_since_earnings   (calendar days since most-recent earnings call;
                            only place calendar days appear in the project)
@@ -138,7 +138,7 @@ def build(data_dir: Path = DATA_DIR) -> pd.DataFrame:
 
     revisions = _load_optional(data_dir / "revisions_monthly.parquet")
     if revisions is not None:
-        revisions = revisions.rename(columns={"rev_30d": "sig_rev"})
+        revisions = revisions.rename(columns={"rev_1m": "sig_rev"})
         revisions["date"] = pd.to_datetime(revisions["date"])
         revisions["ticker"] = revisions["ticker"].astype(str).str.upper()
         panel = panel.merge(revisions[["date", "ticker", "sig_rev"]], on=["date", "ticker"], how="left")
@@ -173,8 +173,22 @@ def build(data_dir: Path = DATA_DIR) -> pd.DataFrame:
     else:
         panel["sig_car3"] = np.nan
 
+    # v3: join the point-in-time Nasdaq-100 membership panel.
+    pit_path = Path(config("MANUAL_DATA_DIR")) / "_meta" / "nasdaq100_pit_panel.parquet"
+    pit = _load_optional(pit_path)
+    if pit is not None and not pit.empty:
+        pit = pit.copy()
+        pit["date"] = pd.to_datetime(pit["date"])
+        pit["ticker"] = pit["ticker"].astype(str).str.upper()
+        panel = panel.merge(pit[["date", "ticker", "in_universe"]], on=["date", "ticker"], how="left")
+        panel["in_universe"] = panel["in_universe"].fillna(False).astype(bool)
+    else:
+        # No PIT panel — fall back to "everything is in-universe" (v2 behaviour,
+        # used only as a degraded fallback if the PIT panel is missing).
+        panel["in_universe"] = True
+
     ordered = [
-        "date", "ticker", "px_eom", "fwd_ret_21d",
+        "date", "ticker", "px_eom", "fwd_ret_1m", "in_universe",
         "sig_anchor", "sig_ridge", "sig_lm", "sig_mom", "sig_rev", "sig_car3",
         "days_since_earnings",
     ]
@@ -196,7 +210,7 @@ def main() -> None:
     print(f"\nWrote {n:,} rows -> {out}")
     print(f"Tickers: {panel['ticker'].nunique()}")
     print(f"Date range: {panel['date'].min().date()} -> {panel['date'].max().date()}")
-    for col in ["sig_anchor", "sig_ridge", "sig_lm", "sig_mom", "sig_rev", "sig_car3", "fwd_ret_21d"]:
+    for col in ["sig_anchor", "sig_ridge", "sig_lm", "sig_mom", "sig_rev", "sig_car3", "fwd_ret_1m"]:
         if col in panel.columns:
             print(f"  {col:>12s} non-null: {panel[col].notna().sum():>6,d} / {n:,}")
 

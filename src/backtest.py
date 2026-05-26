@@ -18,7 +18,7 @@ conventions):
       ``round(n * 0.20)`` names).
     - Short: bottom quintile.
     - Weighting: equal within each leg (1/n_leg per stock).
-    - Holding period: 21 trading days — already baked into ``fwd_ret_21d``.
+    - Holding period: 1 calendar month (BME → next BME) — baked into ``fwd_ret_1m``.
     - Transaction costs: zero.
     - If a ticker is missing the signal at month m, it is excluded from
       that month's ranking only.
@@ -43,7 +43,7 @@ from scipy.stats import spearmanr
 LONG_QUANTILE = 0.80
 SHORT_QUANTILE = 0.20
 MIN_OBS_PER_MONTH = 40
-RETURN_COL = "fwd_ret_21d"
+RETURN_COL = "fwd_ret_1m"
 DATE_COL = "date"
 TICKER_COL = "ticker"
 ANNUALISATION = 12
@@ -56,9 +56,17 @@ class BacktestResult:
 
 
 def _apply_filters(panel: pd.DataFrame, filters: dict | None) -> pd.DataFrame:
-    if not filters:
-        return panel
+    # v3: always apply the point-in-time universe filter when present.
+    # `in_universe` is a bool column written by build_signal_panel.py from
+    # the historical Nasdaq-100 constituent panel. Filter is unconditional
+    # because v3 is a point-in-time backtest by construction — any ticker
+    # not in the index at this BME should not be in the cross-section.
     out = panel
+    if "in_universe" in out.columns:
+        out = out[out["in_universe"].astype(bool)]
+
+    if not filters:
+        return out
     if "drop_stale_gt" in filters and filters["drop_stale_gt"] is not None:
         thresh = int(filters["drop_stale_gt"])
         if "days_since_earnings" in out.columns:
@@ -147,7 +155,7 @@ def run_backtest(
     ----------
     panel
         Long-format monthly panel with at minimum ``date``, ``ticker``,
-        ``sig_col``, and ``fwd_ret_21d`` columns.
+        ``sig_col``, and ``fwd_ret_1m`` columns.
     sig_col
         Name of the signal column to rank cross-sectionally.
     filters

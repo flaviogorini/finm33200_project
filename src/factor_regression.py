@@ -18,8 +18,10 @@ Conventions:
 - No RF subtraction on LHS: LS portfolios are zero-cost.
 - Timestamp alignment: strategy LS at signal-date T joined with FF5 row
   for the next month (the period the LS actually earned in). Implemented
-  by shifting FF5 dates back one business-month-end. Residual ~1-2 BD
-  boundary mismatch is documented in the writeup, not corrected.
+  by shifting FF5 dates back one business-month-end. v3 switches the
+  underlying convention to calendar-month (``fwd_ret_1m``), so the join
+  is now EXACT — same close-to-close period on both sides. v2's residual
+  ~1-2 BD boundary mismatch is eliminated.
 
 Sample windows:
 - own_history: each strategy's own backtest start.
@@ -86,7 +88,11 @@ def load_ff5_shifted(data_dir: Path = DATA_DIR) -> pd.DataFrame:
     """Load FF5 and shift dates back one business-month-end so that the
     FF5 row originally for month M (e.g. 2024-02-29) is keyed at the
     PREVIOUS month-end (2024-01-31), aligning with strategy LS at
-    signal-date T = 2024-01-31 (which earned during Feb)."""
+    signal-date T = 2024-01-31 (which earned during Feb).
+
+    With v3's calendar-month convention (``fwd_ret_1m`` = BME(T) → BME(T+1m)),
+    this shift produces an EXACT alignment between strategy LS and FF5 —
+    same close-to-close window on both sides. No residual mismatch."""
     ff5 = pd.read_parquet(data_dir / FF5_FILENAME)
     ff5["date"] = pd.to_datetime(ff5["date"])
     ff5 = ff5.sort_values("date").reset_index(drop=True)
