@@ -23,10 +23,11 @@ Pipeline (run ``doit list`` to see all tasks):
     build_features:revisions      30-day analyst revisions panel (BEst NI)
     build_panel                   Unified signal panel
     train_ridge                   RidgeCV on Δ call vectors
-    run_backtests                 5 strategies x 3 specs + IC time series
+    run_backtests                 6 strategies x 3 specs + IC time series (v3: PIT-universe filter)
     joint_regression              Fama-MacBeth + Newey-West (HAC lag 6)
-    run_notebooks                 Jupytext convert + execute + html for 99_results
-    write_report                  Render reports/writeup.qmd to reports/writeup.html
+    build_factor_baseline         Ken French FF5 + per-call CAR3
+    factor_regression             Nested time-series α progression
+    run_notebooks / write_report  (added in Phase 6 once v3 notebook + writeup exist)
     run_pytest                    Tests + calendar parity assertion
 
 """
@@ -584,148 +585,10 @@ def task_factor_regression():
     }
 
 
-notebook_tasks = {
-    "99_results.ipynb.py": {
-        "path": Path("./src/99_results.ipynb.py"),
-        "file_dep": [
-            DATA_DIR / "signal_panel_monthly.parquet",
-            DATA_DIR / "metrics_main.json",
-            DATA_DIR / "metrics_stale_excl.json",
-            DATA_DIR / "metrics_post2018.json",
-            DATA_DIR / "results_main.parquet",
-            DATA_DIR / "results_stale_excl.parquet",
-            DATA_DIR / "results_post2018.parquet",
-            DATA_DIR / "ic_timeseries.parquet",
-            DATA_DIR / "ic_summary.json",
-            DATA_DIR / "fm_results.json",
-        ],
-        "targets": [
-            OUTPUT_DIR / "99_hit_rates_main.png",
-            OUTPUT_DIR / "99_rolling_ic.png",
-            OUTPUT_DIR / "99_cum_returns_period1_2008.png",
-            OUTPUT_DIR / "99_drawdown_period1_2008.png",
-            OUTPUT_DIR / "99_cum_returns_period2_ridge.png",
-            OUTPUT_DIR / "99_drawdown_period2_ridge.png",
-        ],
-    },
-    "99_results_v2.ipynb.py": {
-        "path": Path("./src/99_results_v2.ipynb.py"),
-        "file_dep": [
-            DATA_DIR / "signal_panel_monthly.parquet",
-            DATA_DIR / "metrics_main.json",
-            DATA_DIR / "metrics_stale_excl.json",
-            DATA_DIR / "metrics_post2018.json",
-            DATA_DIR / "results_main.parquet",
-            DATA_DIR / "results_stale_excl.parquet",
-            DATA_DIR / "results_post2018.parquet",
-            DATA_DIR / "ic_timeseries.parquet",
-            DATA_DIR / "ic_summary.json",
-            DATA_DIR / "fm_results.json",
-            DATA_DIR / "factor_alpha.json",
-            DATA_DIR / "strategy_factor_returns_monthly.parquet",
-        ],
-        "targets": [
-            OUTPUT_DIR / "99_v2_hit_rates_main.png",
-            OUTPUT_DIR / "99_v2_rolling_ic.png",
-            OUTPUT_DIR / "99_v2_cum_returns_period1_2008.png",
-            OUTPUT_DIR / "99_v2_drawdown_period1_2008.png",
-            OUTPUT_DIR / "99_v2_cum_returns_period2_ridge.png",
-            OUTPUT_DIR / "99_v2_drawdown_period2_ridge.png",
-            DATA_DIR / "signal_corr_stock.json",
-            DATA_DIR / "signal_corr_portfolio.json",
-        ],
-    },
-}
-
-
-def task_run_notebooks():
-    """Convert + execute jupytext notebooks and copy outputs to _output/."""
-    for notebook, spec in notebook_tasks.items():
-        pyfile_path = Path(spec["path"])
-        notebook_path = pyfile_path.with_suffix("")  # strips .py -> .ipynb
-        notebook_name = notebook_path.stem
-        yield {
-            "name": notebook,
-            "actions": [
-                f"jupytext --to notebook --output {notebook_path} {pyfile_path}",
-                jupyter_execute_notebook(notebook_path),
-                jupyter_to_html(notebook_path),
-                mv(notebook_path, OUTPUT_DIR),
-            ],
-            "file_dep": [
-                str(pyfile_path),
-                *[str(p) for p in spec["file_dep"]],
-            ],
-            "targets": [
-                OUTPUT_DIR / f"{notebook_name}.html",
-                OUTPUT_DIR / f"{notebook_name}.ipynb",
-                *[str(p) for p in spec["targets"]],
-            ],
-            "clean": True,
-            "verbosity": 2,
-        }
-
-
-def task_write_report():
-    """Render reports/writeup.qmd to reports/writeup.html via Quarto."""
-    qmd = Path("./reports/writeup.qmd")
-    html = Path("./reports/writeup.html")
-    _configure_quarto_env()
-    quarto = _find_quarto()
-    return {
-        "actions": [f"{quarto} render {qmd} --to html"],
-        "file_dep": [
-            str(qmd),
-            str(DATA_DIR / "metrics_main.json"),
-            str(DATA_DIR / "metrics_stale_excl.json"),
-            str(DATA_DIR / "metrics_post2018.json"),
-            str(DATA_DIR / "ic_summary.json"),
-            str(DATA_DIR / "fm_results.json"),
-            str(OUTPUT_DIR / "99_hit_rates_main.png"),
-            str(OUTPUT_DIR / "99_rolling_ic.png"),
-            str(OUTPUT_DIR / "99_cum_returns_period1_2008.png"),
-            str(OUTPUT_DIR / "99_cum_returns_period2_ridge.png"),
-            str(OUTPUT_DIR / "99_drawdown_period2_ridge.png"),
-        ],
-        "targets": [str(html)],
-        "clean": True,
-        "verbosity": 2,
-    }
-
-
-def task_write_report_v2():
-    """Render reports/writeup_v2.qmd to reports/writeup_v2.html via Quarto.
-
-    v2 adds CAR3 as a 6th first-class signal, §5.4 signal correlations,
-    and §5.6 nested time-series α progression. The v1 writeup at
-    reports/writeup.html stays untouched as the 5-signal reference.
-    """
-    qmd = Path("./reports/writeup_v2.qmd")
-    html = Path("./reports/writeup_v2.html")
-    _configure_quarto_env()
-    quarto = _find_quarto()
-    return {
-        "actions": [f"{quarto} render {qmd} --to html"],
-        "file_dep": [
-            str(qmd),
-            str(DATA_DIR / "metrics_main.json"),
-            str(DATA_DIR / "metrics_stale_excl.json"),
-            str(DATA_DIR / "metrics_post2018.json"),
-            str(DATA_DIR / "ic_summary.json"),
-            str(DATA_DIR / "fm_results.json"),
-            str(DATA_DIR / "factor_alpha.json"),
-            str(DATA_DIR / "signal_corr_stock.json"),
-            str(DATA_DIR / "signal_corr_portfolio.json"),
-            str(OUTPUT_DIR / "99_v2_hit_rates_main.png"),
-            str(OUTPUT_DIR / "99_v2_rolling_ic.png"),
-            str(OUTPUT_DIR / "99_v2_cum_returns_period1_2008.png"),
-            str(OUTPUT_DIR / "99_v2_cum_returns_period2_ridge.png"),
-            str(OUTPUT_DIR / "99_v2_drawdown_period2_ridge.png"),
-        ],
-        "targets": [str(html)],
-        "clean": True,
-        "verbosity": 2,
-    }
+# Notebook + writeup tasks for v3 are added in Phase 6 of the v3 rebuild,
+# once src/99_results.ipynb.py and reports/writeup.qmd exist on this branch.
+# v1 / v2 versions of those files live on main and are not built from
+# this branch.
 
 
 def task_run_pytest():
