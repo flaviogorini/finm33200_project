@@ -32,6 +32,7 @@ Pipeline (run ``doit list`` to see all tasks):
 """
 
 import os
+import shutil
 import sys
 
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
@@ -88,10 +89,86 @@ def jupyter_to_html(notebook_path: Path, output_dir: Path = OUTPUT_DIR) -> str:
     return f"jupyter nbconvert --to html --output-dir={output_dir} {notebook_path}"
 
 
-def mv(from_path: Path, to_path: Path) -> str:
+def _configure_quarto_env() -> None:
+    """Point quarto at its sibling tool binaries for a non-activated conda env.
+
+    The conda-forge Windows quarto package ships its runtime tools (deno,
+    pandoc, deno_dom, sass, typst, ...) under the env's ``Library`` tree and
+    wires the ``QUARTO_*`` env vars only through conda *activation* scripts.
+    ``python -m doit`` does not activate the env, so those vars are unset and
+    quarto's launcher falls back to bundled-install paths that do not exist
+    (e.g. ``Library/bin/tools/x86_64/deno.exe``), failing with
+    ``deno.exe is not recognized``.
+
+    We set the vars here, computed from the interpreter location, so the
+    pipeline is self-contained. We override unconditionally because the shipped
+    activation script itself sets ``QUARTO_DENO_DOM`` to a non-existent
+    build-machine path (``D:/bld/...``). No-op when this is not a Windows
+    conda-forge quarto (e.g. an official system install, which is self-locating).
+    """
+    library = Path(sys.executable).parent / "Library"
+    if not (library / "bin" / "quarto.cmd").exists():
+        return
+    tools = {
+        "QUARTO_DENO": library / "bin" / "deno.exe",
+        "QUARTO_DENO_DOM": library / "lib" / "deno_dom.dll",
+        "QUARTO_PANDOC": library / "bin" / "pandoc.exe",
+        "QUARTO_ESBUILD": library / "bin" / "esbuild.exe",
+        "QUARTO_DART_SASS": library / "bin" / "sass.exe",
+        "QUARTO_TYPST": library / "bin" / "typst.exe",
+        "QUARTO_SHARE_PATH": library / "share" / "quarto",
+        "QUARTO_CONDA_PREFIX": library,
+    }
+    for var, path in tools.items():
+        if path.exists():
+            os.environ[var] = str(path)
+
+
+def _find_quarto() -> str:
+    """Locate the quarto executable, quoted for use in a shell action.
+
+    Quarto is not a Python package. Installed via conda-forge it lands in the
+    env's ``Library/bin`` (Windows) or ``bin`` (Unix) -- directories that are
+    only on PATH when the env is *activated*. doit spawns a plain subshell that
+    does not activate the env, so a bare ``quarto`` is not found. Resolve it
+    relative to the running interpreter (mirroring ``PYTHON = sys.executable``),
+    then fall back to PATH for system-wide installs (official installer / Unix).
+    """
+    # On Windows ``sys.executable`` is ``<env>/python.exe`` so env_dir is the
+    # env root; on Unix it is ``<env>/bin/python`` so env_dir is already the bin
+    # dir. Cover both layouts.
+    env_dir = Path(sys.executable).parent
+    candidates = [
+        env_dir / "Library" / "bin" / "quarto.cmd",  # Windows conda-forge
+        env_dir / "Library" / "bin" / "quarto.exe",
+        env_dir / "Scripts" / "quarto.cmd",
+        env_dir / "quarto",  # Unix conda-forge (<env>/bin/quarto)
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return f'"{candidate}"'
+    found = shutil.which("quarto")
+    return f'"{found}"' if found else "quarto"
+
+
+def mv(from_path: Path, to_path: Path):
+    """Return a cross-platform doit action that moves ``from_path`` into the
+    directory ``to_path`` (overwriting any existing file of the same name).
+
+    Returns a Python callable rather than a shell string so the pipeline does
+    not depend on a Unix ``mv`` being on PATH (it is absent on Windows).
+    """
+    from_path = Path(from_path)
     to_path = Path(to_path)
-    to_path.mkdir(parents=True, exist_ok=True)
-    return f"mv {from_path} {to_path}"
+
+    def _move():
+        to_path.mkdir(parents=True, exist_ok=True)
+        dest = to_path / from_path.name
+        if dest.exists():
+            dest.unlink()
+        shutil.move(str(from_path), str(dest))
+
+    return _move
 
 
 def task_config():
@@ -517,8 +594,10 @@ def task_write_report():
     """Render reports/writeup.qmd to reports/writeup.html via Quarto."""
     qmd = Path("./reports/writeup.qmd")
     html = Path("./reports/writeup.html")
+    _configure_quarto_env()
+    quarto = _find_quarto()
     return {
-        "actions": [f"quarto render {qmd} --to html"],
+        "actions": [f"{quarto} render {qmd} --to html"],
         "file_dep": [
             str(qmd),
             str(DATA_DIR / "metrics_main.json"),
