@@ -3540,20 +3540,807 @@ Table 11
 </div>
 </div>
 <p><strong>How to read this.</strong> Read horizontally (α₀ → α₁ → α₂ → α₃) within a row to see how each strategy’s α decays as more controls are added: a signal whose α drops to zero after the CAR3 column is just picking up the earnings-day price reaction; a signal whose α survives all three controls is contributing unique information beyond standard factors AND non-text earnings news AND analyst revisions. Read vertically (Ridge vs Anchor vs LM at any column) for the project’s central LLM-vs-lexicon comparison after factor adjustment — this is the Ao-Zhao question, on this universe.</p>
+<section id="full-nested-regression-tables-own-history-sample" class="level4">
+<h4 class="anchored" data-anchor-id="full-nested-regression-tables-own-history-sample">Full nested regression tables (own-history sample)</h4>
+<p>The α-only tables above hide the factor loadings that determine how each LLM strategy’s return is being decomposed. The three tables below show the <strong>entire regression</strong> — α, every factor’s β (with NW-HAC t-stat in parentheses), R², and N — for each of the 4 nested specs. Read across a row to see how a factor’s loading shifts as more controls are added (multicollinearity diagnostic — large shifts indicate the new factor is partly redundant with this one). Empty cells indicate the factor was not in that spec’s RHS.</p>
+<section id="ridge" class="level5">
+<h5 class="anchored" data-anchor-id="ridge">Ridge</h5>
+<div class="cell" data-execution_count="14">
+<div id="tbl-full-ridge" class="cell quarto-float quarto-figure quarto-figure-center anchored" data-execution_count="14">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl quarto-uncaptioned" id="tbl-full-ridge-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table 12
+</figcaption>
+<div aria-describedby="tbl-full-ridge-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output cell-output-display" data-execution_count="14">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">Factor</th>
+<th data-quarto-table-cell-role="th">α₀ (FF5)</th>
+<th data-quarto-table-cell-role="th">α₁ (+Mom)</th>
+<th data-quarto-table-cell-role="th">α₂ (+CAR3)</th>
+<th data-quarto-table-cell-role="th">α₃ (+Rev)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>α (intercept, monthly)</td>
+<td>+0.0050 (t=+1.30)</td>
+<td>+0.0045 (t=+1.18)</td>
+<td>+0.0044 (t=+1.10)</td>
+<td>+0.0035 (t=+0.98)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>MKT-RF</td>
+<td>-0.0650 (t=-0.81)</td>
+<td>-0.0676 (t=-0.85)</td>
+<td>-0.0665 (t=-0.83)</td>
+<td>-0.0737 (t=-0.94)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>SMB</td>
+<td>+0.2869 (t=+2.16)</td>
+<td>+0.3049 (t=+2.27)</td>
+<td>+0.2993 (t=+2.18)</td>
+<td>+0.3177 (t=+2.21)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">3</th>
+<td>HML</td>
+<td>-0.1005 (t=-1.43)</td>
+<td>-0.0735 (t=-0.84)</td>
+<td>-0.0764 (t=-0.91)</td>
+<td>-0.0767 (t=-0.98)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">4</th>
+<td>RMW</td>
+<td>+0.2760 (t=+2.48)</td>
+<td>+0.3294 (t=+2.66)</td>
+<td>+0.3188 (t=+2.24)</td>
+<td>+0.3687 (t=+2.25)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">5</th>
+<td>CMA</td>
+<td>+0.1508 (t=+1.32)</td>
+<td>+0.1153 (t=+1.05)</td>
+<td>+0.1211 (t=+1.00)</td>
+<td>+0.1826 (t=+1.47)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">6</th>
+<td>Mom-factor</td>
+<td></td>
+<td>+0.0776 (t=+0.94)</td>
+<td>+0.0728 (t=+0.98)</td>
+<td>+0.0447 (t=+0.56)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">7</th>
+<td>CAR3-factor</td>
+<td></td>
+<td></td>
+<td>+0.0186 (t=+0.19)</td>
+<td>+0.0210 (t=+0.22)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">8</th>
+<td>Rev-factor</td>
+<td></td>
+<td></td>
+<td></td>
+<td>+0.1003 (t=+1.06)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">9</th>
+<td>R²</td>
+<td>0.0767</td>
+<td>0.1016</td>
+<td>0.1022</td>
+<td>0.1181</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">10</th>
+<td>N (months)</td>
+<td>85</td>
+<td>85</td>
+<td>85</td>
+<td>85</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</figure>
+</div>
+</div>
+</section>
+<section id="anchor" class="level5">
+<h5 class="anchored" data-anchor-id="anchor">Anchor</h5>
+<div class="cell" data-execution_count="15">
+<div id="tbl-full-anchor" class="cell quarto-float quarto-figure quarto-figure-center anchored" data-execution_count="15">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl quarto-uncaptioned" id="tbl-full-anchor-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table 13
+</figcaption>
+<div aria-describedby="tbl-full-anchor-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output cell-output-display" data-execution_count="15">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">Factor</th>
+<th data-quarto-table-cell-role="th">α₀ (FF5)</th>
+<th data-quarto-table-cell-role="th">α₁ (+Mom)</th>
+<th data-quarto-table-cell-role="th">α₂ (+CAR3)</th>
+<th data-quarto-table-cell-role="th">α₃ (+Rev)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>α (intercept, monthly)</td>
+<td>+0.0030 (t=+1.71)</td>
+<td>+0.0027 (t=+1.53)</td>
+<td>+0.0029 (t=+1.67)</td>
+<td>+0.0032 (t=+1.75)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>MKT-RF</td>
+<td>-0.0077 (t=-0.13)</td>
+<td>+0.0023 (t=+0.04)</td>
+<td>+0.0059 (t=+0.10)</td>
+<td>+0.0090 (t=+0.15)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>SMB</td>
+<td>-0.0790 (t=-0.88)</td>
+<td>-0.0784 (t=-0.89)</td>
+<td>-0.0932 (t=-1.09)</td>
+<td>-0.1007 (t=-1.15)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">3</th>
+<td>HML</td>
+<td>-0.1370 (t=-1.84)</td>
+<td>-0.1119 (t=-1.52)</td>
+<td>-0.1312 (t=-1.90)</td>
+<td>-0.1347 (t=-1.95)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">4</th>
+<td>RMW</td>
+<td>+0.0447 (t=+0.34)</td>
+<td>+0.0778 (t=+0.58)</td>
+<td>+0.0281 (t=+0.22)</td>
+<td>+0.0103 (t=+0.08)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">5</th>
+<td>CMA</td>
+<td>+0.2815 (t=+2.15)</td>
+<td>+0.2697 (t=+2.04)</td>
+<td>+0.3067 (t=+2.44)</td>
+<td>+0.2903 (t=+2.28)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">6</th>
+<td>Mom-factor</td>
+<td></td>
+<td>+0.0678 (t=+1.53)</td>
+<td>+0.0301 (t=+0.76)</td>
+<td>+0.0371 (t=+0.94)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">7</th>
+<td>CAR3-factor</td>
+<td></td>
+<td></td>
+<td>+0.1409 (t=+1.87)</td>
+<td>+0.1478 (t=+1.91)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">8</th>
+<td>Rev-factor</td>
+<td></td>
+<td></td>
+<td></td>
+<td>-0.0380 (t=-0.67)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">9</th>
+<td>R²</td>
+<td>0.0372</td>
+<td>0.0517</td>
+<td>0.0803</td>
+<td>0.0826</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">10</th>
+<td>N (months)</td>
+<td>229</td>
+<td>229</td>
+<td>229</td>
+<td>229</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</figure>
+</div>
+</div>
+</section>
+<section id="lm" class="level5">
+<h5 class="anchored" data-anchor-id="lm">LM</h5>
+<div class="cell" data-execution_count="16">
+<div id="tbl-full-lm" class="cell quarto-float quarto-figure quarto-figure-center anchored" data-execution_count="16">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl quarto-uncaptioned" id="tbl-full-lm-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table 14
+</figcaption>
+<div aria-describedby="tbl-full-lm-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output cell-output-display" data-execution_count="16">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">Factor</th>
+<th data-quarto-table-cell-role="th">α₀ (FF5)</th>
+<th data-quarto-table-cell-role="th">α₁ (+Mom)</th>
+<th data-quarto-table-cell-role="th">α₂ (+CAR3)</th>
+<th data-quarto-table-cell-role="th">α₃ (+Rev)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>α (intercept, monthly)</td>
+<td>+0.0024 (t=+1.31)</td>
+<td>+0.0020 (t=+1.04)</td>
+<td>+0.0022 (t=+1.19)</td>
+<td>+0.0017 (t=+0.89)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>MKT-RF</td>
+<td>-0.0298 (t=-0.45)</td>
+<td>-0.0156 (t=-0.25)</td>
+<td>-0.0112 (t=-0.18)</td>
+<td>-0.0171 (t=-0.28)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>SMB</td>
+<td>-0.0379 (t=-0.39)</td>
+<td>-0.0371 (t=-0.40)</td>
+<td>-0.0547 (t=-0.57)</td>
+<td>-0.0403 (t=-0.44)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">3</th>
+<td>HML</td>
+<td>+0.0700 (t=+0.87)</td>
+<td>+0.1058 (t=+1.28)</td>
+<td>+0.0828 (t=+1.10)</td>
+<td>+0.0896 (t=+1.16)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">4</th>
+<td>RMW</td>
+<td>-0.0920 (t=-0.62)</td>
+<td>-0.0447 (t=-0.30)</td>
+<td>-0.1041 (t=-0.70)</td>
+<td>-0.0694 (t=-0.47)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">5</th>
+<td>CMA</td>
+<td>-0.1024 (t=-0.72)</td>
+<td>-0.1191 (t=-0.78)</td>
+<td>-0.0750 (t=-0.53)</td>
+<td>-0.0430 (t=-0.31)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">6</th>
+<td>Mom-factor</td>
+<td></td>
+<td>+0.0966 (t=+1.77)</td>
+<td>+0.0515 (t=+0.93)</td>
+<td>+0.0379 (t=+0.72)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">7</th>
+<td>CAR3-factor</td>
+<td></td>
+<td></td>
+<td>+0.1682 (t=+2.24)</td>
+<td>+0.1546 (t=+1.99)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">8</th>
+<td>Rev-factor</td>
+<td></td>
+<td></td>
+<td></td>
+<td>+0.0741 (t=+1.16)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">9</th>
+<td>R²</td>
+<td>0.0062</td>
+<td>0.0318</td>
+<td>0.0674</td>
+<td>0.0750</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">10</th>
+<td>N (months)</td>
+<td>229</td>
+<td>229</td>
+<td>229</td>
+<td>229</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</figure>
+</div>
+</div>
+</section>
+</section>
+<section id="full-nested-regression-tables-post-2018-common-window-sample" class="level4">
+<h4 class="anchored" data-anchor-id="full-nested-regression-tables-post-2018-common-window-sample">Full nested regression tables (post-2018 common-window sample)</h4>
+<p>For the post-2018 sample (~86 months), the same three tables.</p>
+<section id="ridge-1" class="level5">
+<h5 class="anchored" data-anchor-id="ridge-1">Ridge</h5>
+<div class="cell" data-execution_count="17">
+<div id="tbl-full-ridge-post" class="cell quarto-float quarto-figure quarto-figure-center anchored" data-execution_count="17">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl quarto-uncaptioned" id="tbl-full-ridge-post-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table 15
+</figcaption>
+<div aria-describedby="tbl-full-ridge-post-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output cell-output-display" data-execution_count="17">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">Factor</th>
+<th data-quarto-table-cell-role="th">α₀ (FF5)</th>
+<th data-quarto-table-cell-role="th">α₁ (+Mom)</th>
+<th data-quarto-table-cell-role="th">α₂ (+CAR3)</th>
+<th data-quarto-table-cell-role="th">α₃ (+Rev)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>α (intercept, monthly)</td>
+<td>+0.0050 (t=+1.30)</td>
+<td>+0.0045 (t=+1.18)</td>
+<td>+0.0044 (t=+1.10)</td>
+<td>+0.0035 (t=+0.98)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>MKT-RF</td>
+<td>-0.0650 (t=-0.81)</td>
+<td>-0.0676 (t=-0.85)</td>
+<td>-0.0665 (t=-0.83)</td>
+<td>-0.0737 (t=-0.94)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>SMB</td>
+<td>+0.2869 (t=+2.16)</td>
+<td>+0.3049 (t=+2.27)</td>
+<td>+0.2993 (t=+2.18)</td>
+<td>+0.3177 (t=+2.21)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">3</th>
+<td>HML</td>
+<td>-0.1005 (t=-1.43)</td>
+<td>-0.0735 (t=-0.84)</td>
+<td>-0.0764 (t=-0.91)</td>
+<td>-0.0767 (t=-0.98)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">4</th>
+<td>RMW</td>
+<td>+0.2760 (t=+2.48)</td>
+<td>+0.3294 (t=+2.66)</td>
+<td>+0.3188 (t=+2.24)</td>
+<td>+0.3687 (t=+2.25)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">5</th>
+<td>CMA</td>
+<td>+0.1508 (t=+1.32)</td>
+<td>+0.1153 (t=+1.05)</td>
+<td>+0.1211 (t=+1.00)</td>
+<td>+0.1826 (t=+1.47)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">6</th>
+<td>Mom-factor</td>
+<td></td>
+<td>+0.0776 (t=+0.94)</td>
+<td>+0.0728 (t=+0.98)</td>
+<td>+0.0447 (t=+0.56)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">7</th>
+<td>CAR3-factor</td>
+<td></td>
+<td></td>
+<td>+0.0186 (t=+0.19)</td>
+<td>+0.0210 (t=+0.22)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">8</th>
+<td>Rev-factor</td>
+<td></td>
+<td></td>
+<td></td>
+<td>+0.1003 (t=+1.06)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">9</th>
+<td>R²</td>
+<td>0.0767</td>
+<td>0.1016</td>
+<td>0.1022</td>
+<td>0.1181</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">10</th>
+<td>N (months)</td>
+<td>85</td>
+<td>85</td>
+<td>85</td>
+<td>85</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</figure>
+</div>
+</div>
+</section>
+<section id="anchor-1" class="level5">
+<h5 class="anchored" data-anchor-id="anchor-1">Anchor</h5>
+<div class="cell" data-execution_count="18">
+<div id="tbl-full-anchor-post" class="cell quarto-float quarto-figure quarto-figure-center anchored" data-execution_count="18">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl quarto-uncaptioned" id="tbl-full-anchor-post-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table 16
+</figcaption>
+<div aria-describedby="tbl-full-anchor-post-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output cell-output-display" data-execution_count="18">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">Factor</th>
+<th data-quarto-table-cell-role="th">α₀ (FF5)</th>
+<th data-quarto-table-cell-role="th">α₁ (+Mom)</th>
+<th data-quarto-table-cell-role="th">α₂ (+CAR3)</th>
+<th data-quarto-table-cell-role="th">α₃ (+Rev)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>α (intercept, monthly)</td>
+<td>+0.0031 (t=+1.17)</td>
+<td>+0.0029 (t=+1.07)</td>
+<td>+0.0023 (t=+0.86)</td>
+<td>+0.0030 (t=+1.22)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>MKT-RF</td>
+<td>-0.0334 (t=-0.33)</td>
+<td>-0.0339 (t=-0.34)</td>
+<td>-0.0258 (t=-0.26)</td>
+<td>-0.0189 (t=-0.20)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>SMB</td>
+<td>-0.0148 (t=-0.11)</td>
+<td>-0.0072 (t=-0.05)</td>
+<td>-0.0581 (t=-0.44)</td>
+<td>-0.0736 (t=-0.53)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">3</th>
+<td>HML</td>
+<td>-0.1661 (t=-1.69)</td>
+<td>-0.1556 (t=-1.51)</td>
+<td>-0.1809 (t=-1.78)</td>
+<td>-0.1808 (t=-1.80)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">4</th>
+<td>RMW</td>
+<td>+0.1329 (t=+0.72)</td>
+<td>+0.1537 (t=+0.74)</td>
+<td>+0.0618 (t=+0.30)</td>
+<td>+0.0189 (t=+0.08)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">5</th>
+<td>CMA</td>
+<td>+0.3271 (t=+2.11)</td>
+<td>+0.3130 (t=+1.97)</td>
+<td>+0.3650 (t=+2.23)</td>
+<td>+0.3138 (t=+1.78)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">6</th>
+<td>Mom-factor</td>
+<td></td>
+<td>+0.0305 (t=+0.39)</td>
+<td>-0.0111 (t=-0.17)</td>
+<td>+0.0117 (t=+0.17)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">7</th>
+<td>CAR3-factor</td>
+<td></td>
+<td></td>
+<td>+0.1648 (t=+1.01)</td>
+<td>+0.1637 (t=+1.00)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">8</th>
+<td>Rev-factor</td>
+<td></td>
+<td></td>
+<td></td>
+<td>-0.0839 (t=-0.88)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">9</th>
+<td>R²</td>
+<td>0.0681</td>
+<td>0.0714</td>
+<td>0.1069</td>
+<td>0.1165</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">10</th>
+<td>N (months)</td>
+<td>87</td>
+<td>87</td>
+<td>87</td>
+<td>87</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</figure>
+</div>
+</div>
+</section>
+<section id="lm-1" class="level5">
+<h5 class="anchored" data-anchor-id="lm-1">LM</h5>
+<div class="cell" data-execution_count="19">
+<div id="tbl-full-lm-post" class="cell quarto-float quarto-figure quarto-figure-center anchored" data-execution_count="19">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl quarto-uncaptioned" id="tbl-full-lm-post-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table 17
+</figcaption>
+<div aria-describedby="tbl-full-lm-post-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output cell-output-display" data-execution_count="19">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">Factor</th>
+<th data-quarto-table-cell-role="th">α₀ (FF5)</th>
+<th data-quarto-table-cell-role="th">α₁ (+Mom)</th>
+<th data-quarto-table-cell-role="th">α₂ (+CAR3)</th>
+<th data-quarto-table-cell-role="th">α₃ (+Rev)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>α (intercept, monthly)</td>
+<td>+0.0012 (t=+0.43)</td>
+<td>+0.0007 (t=+0.28)</td>
+<td>-0.0000 (t=-0.00)</td>
+<td>-0.0001 (t=-0.03)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>MKT-RF</td>
+<td>-0.0026 (t=-0.03)</td>
+<td>-0.0039 (t=-0.04)</td>
+<td>+0.0053 (t=+0.06)</td>
+<td>+0.0046 (t=+0.05)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>SMB</td>
+<td>-0.0521 (t=-0.30)</td>
+<td>-0.0330 (t=-0.21)</td>
+<td>-0.0905 (t=-0.57)</td>
+<td>-0.0888 (t=-0.57)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">3</th>
+<td>HML</td>
+<td>+0.1803 (t=+1.76)</td>
+<td>+0.2068 (t=+1.84)</td>
+<td>+0.1782 (t=+1.60)</td>
+<td>+0.1782 (t=+1.59)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">4</th>
+<td>RMW</td>
+<td>-0.0480 (t=-0.25)</td>
+<td>+0.0045 (t=+0.02)</td>
+<td>-0.0993 (t=-0.42)</td>
+<td>-0.0948 (t=-0.37)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">5</th>
+<td>CMA</td>
+<td>-0.1938 (t=-1.12)</td>
+<td>-0.2294 (t=-1.14)</td>
+<td>-0.1707 (t=-0.85)</td>
+<td>-0.1653 (t=-0.86)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">6</th>
+<td>Mom-factor</td>
+<td></td>
+<td>+0.0768 (t=+0.81)</td>
+<td>+0.0299 (t=+0.30)</td>
+<td>+0.0275 (t=+0.32)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">7</th>
+<td>CAR3-factor</td>
+<td></td>
+<td></td>
+<td>+0.1861 (t=+1.44)</td>
+<td>+0.1862 (t=+1.45)</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">8</th>
+<td>Rev-factor</td>
+<td></td>
+<td></td>
+<td></td>
+<td>+0.0088 (t=+0.08)</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">9</th>
+<td>R²</td>
+<td>0.0219</td>
+<td>0.0399</td>
+<td>0.0784</td>
+<td>0.0785</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">10</th>
+<td>N (months)</td>
+<td>87</td>
+<td>87</td>
+<td>87</td>
+<td>87</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</figure>
+</div>
+</div>
+</section>
+</section>
 </section>
 </section>
 <section id="limitations" class="level2">
 <h2 class="anchored" data-anchor-id="limitations">6. Limitations</h2>
 <ul>
-<li><strong>Survivorship bias.</strong> The 100-ticker universe is drawn from current Nasdaq-100 membership. Names that delisted or fell out of the index are excluded by construction. Bias should largely (but not perfectly) cancel in the <em>relative</em> comparison; differential effects across signals are possible and untested.</li>
-<li><strong>Small universe and short OOS.</strong> 100 tickers, quintile legs (16–20 names typically), and a ridge test window of ~7 years (2019–2025) all limit statistical power. A claim like “Sharpe of A is twice B’s” is much weaker on 100 names than on the Russell 3000.</li>
-<li><strong>No transaction costs.</strong> Defensible as a comparative test (turnover is similar across strategies on a monthly cadence) but not as a deployable-strategy claim.</li>
-<li><strong>Single embedding model.</strong> Only <code>text-embedding-3-small</code> is tested. FinBERT, larger OpenAI embedders, or sentence-transformers fine-tuned on financial text are not compared.</li>
-<li><strong>Anchor sentences unvalidated.</strong> Different anchors yield different scores; no sensitivity sweep on the choice of the five-on-five anchor set.</li>
-<li><strong>Embedding-model look-ahead.</strong> The embedding model itself has seen text from the test period during pre-training (the Glasserman-Lin concern). The embedding-as-a-feature setup is more robust to this than a direct LLM-generates-forecast setup, but the bias is still present.</li>
-<li><strong>Full transcript only.</strong> We do not split prepared remarks from Q&amp;A. A Q&amp;A-only specification is listed as future work.</li>
-<li><strong>FF5 baseline excludes Carhart MOM (v2).</strong> §5.6’s baseline is FF5 alone, deviating from S&amp;P / Ghosal which commonly use FF5+MOM or Carhart 4. Momentum is included as the project’s own non-text strategy in the nested progression instead, which lets the data speak on whether momentum is a real anomaly on this universe rather than baking it in. A reader who prefers a Carhart 4 baseline could re-run §5.6 with Mom moved from the candidate add-on set to the always-included baseline; the qualitative comparisons across Ridge / Anchor / LM are stable to that choice.</li>
-<li><strong>Holding-window alignment in §5.6 α regression (v2).</strong> Strategy LS returns are 21-trading-day-held; FF5 is calendar-month. We align by timestamp-shift (signal-date T joined with FF5’s next-month row). The ~1-2 BD boundary spillover at the end of short calendar months produces a small magnitude bias in α (well under 5%), not in sign or t-statistic. A rigorous fix would build a daily-compounded calendar-month LS series specifically for the α test; we chose not to introduce a second LS-return convention in the project for marginal precision gain.</li>
+<li><p><strong>Survivorship bias.</strong> The 100-ticker universe is drawn from current Nasdaq-100 membership. Names that delisted or fell out of the index are excluded by construction. Bias should largely (but not perfectly) cancel in the <em>relative</em> comparison; differential effects across signals are possible and untested.</p></li>
+<li><p><strong>Universe-composition drift over the backtest window.</strong> The 100-ticker universe is fixed at current Nasdaq-100 membership, but the <em>coverage</em> of those names ramps up dramatically over time:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Year</th>
+<th>Tickers reporting earnings</th>
+<th>% of today’s universe</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>2006</td>
+<td>43</td>
+<td>43 %</td>
+</tr>
+<tr class="even">
+<td>2010</td>
+<td>73</td>
+<td>74 %</td>
+</tr>
+<tr class="odd">
+<td>2015</td>
+<td>84</td>
+<td>85 %</td>
+</tr>
+<tr class="even">
+<td>2018</td>
+<td>87</td>
+<td>88 %</td>
+</tr>
+<tr class="odd">
+<td>2024</td>
+<td>98</td>
+<td>99 %</td>
+</tr>
+</tbody>
+</table>
+<p>Pre-2019 results therefore reflect a “high-coverage, older-tech-megacap” subset of today’s universe; post-2019 results reflect substantially the full universe including recent IPOs (ARM, APP, ABNB, PLTR, …) with larger announcement-day moves. <strong>CAR3 (§2.6) is the most affected</strong> — its short measurement window depends on cross-sectional dispersion that the older well-covered megacap subset simply didn’t have, so its full-history Sharpe (≈ 0 per §4.1) understates its post-2019 performance (Sharpe +0.53 per §5.2). Headline cross-strategy comparisons in §4.1 are not on a constant universe; for apples-to-apples views see §5.2 (post-2018 table) and §4.4 (ridge-start-common-window chart).</p></li>
+<li><p><strong>Point-in-time universe choice — and why we treat this as a proof of concept.</strong> We use <em>current</em> Nasdaq-100 membership across the whole backtest period, NOT the historical point-in-time membership a deployable strategy would require. A correct point-in-time backtest would re-pick the universe each month from the actual Nasdaq-100 constituents on that date — letting in 2010-era names that have since been dropped (e.g. Yahoo, Sirius XM, Vodafone) and excluding post-2010 additions (Tesla 2010, Meta 2013, ARM 2024, …) until their actual entry dates. We do not do this for three reasons: (a) a clean point-in-time Nasdaq-100 constituent series intersected with our transcript-coverage requirements is not readily available from any of the data sources we use; (b) the project’s scope is explicitly a methodological pipeline demonstration, not a deployable trading strategy — what we are evaluating is whether the <strong>system</strong> (transcript extraction → LLM embedding → multi-signal back-test → FF5-adjusted α) produces sensible and internally consistent cross-strategy comparisons; (c) the relative ranking of signals is preserved because anchor / ridge / LM / mom / rev / CAR3 are all evaluated on the same universe each month — the comparative claims (e.g. Ridge α survives controls better than LM α) survive the choice.</p>
+<p><strong>Why we are optimistic about a backdated-universe version.</strong> The CAR3 and Ridge results above show the recent regime — when today’s universe is fully populated and freely traded — is the regime in which both the earnings-window anomaly AND the LLM-embedding signal work <em>best</em> (CAR3 Sharpe +0.53 post-2018 vs −0.02 full-history; Ridge α remains positive across all FF5 + Mom + CAR3 + Rev controls per §5.6). A correct point-in-time backtest from 2006 would have had <em>different</em> names in the universe — many of them growth-oriented, less-analyst-covered IPOs which historically have larger announcement-day moves (good for CAR3) AND noisier language from less-experienced IR teams (good for LLM-embedding dispersion). Both effects work <em>with</em> the signals we test, not against them. The honest extrapolation is that a properly backdated point-in-time backtest would <em>raise</em> the strategies’ Sharpes, not lower them — the current backtest understates the upside, not overstates it.</p>
+<p><strong>Project framing.</strong> This is a proof-of-concept for the methodological pipeline. Headline numbers should be read as evidence that (i) the pipeline functions correctly end-to-end on real WRDS / Bloomberg / OpenAI data, (ii) the v1 vs v2 invariance contract is preserved (no signal-level result drifts when CAR3 is added — verified via <code>src/test_invariance.py</code>, 8/8 passing), and (iii) the cross-strategy comparisons line up with what asset-pricing literature would predict (LM lexicon’s α absorbed by CAR3 in §5.6; Ridge α survives more controls than LM α). A production version would re-implement the universe layer with point-in-time membership before any deployable-strategy Sharpe claim could be made.</p></li>
+<li><p><strong>Small universe and short OOS.</strong> 100 tickers, quintile legs (16–20 names typically), and a ridge test window of ~7 years (2019–2025) all limit statistical power. A claim like “Sharpe of A is twice B’s” is much weaker on 100 names than on the Russell 3000.</p></li>
+<li><p><strong>No transaction costs.</strong> Defensible as a comparative test (turnover is similar across strategies on a monthly cadence) but not as a deployable-strategy claim.</p></li>
+<li><p><strong>Single embedding model.</strong> Only <code>text-embedding-3-small</code> is tested. FinBERT, larger OpenAI embedders, or sentence-transformers fine-tuned on financial text are not compared.</p></li>
+<li><p><strong>Anchor sentences unvalidated.</strong> Different anchors yield different scores; no sensitivity sweep on the choice of the five-on-five anchor set.</p></li>
+<li><p><strong>Embedding-model look-ahead.</strong> The embedding model itself has seen text from the test period during pre-training (the Glasserman-Lin concern). The embedding-as-a-feature setup is more robust to this than a direct LLM-generates-forecast setup, but the bias is still present.</p></li>
+<li><p><strong>Full transcript only.</strong> We do not split prepared remarks from Q&amp;A. A Q&amp;A-only specification is listed as future work.</p></li>
+<li><p><strong>FF5 baseline excludes Carhart MOM (v2).</strong> §5.6’s baseline is FF5 alone, deviating from S&amp;P / Ghosal which commonly use FF5+MOM or Carhart 4. Momentum is included as the project’s own non-text strategy in the nested progression instead, which lets the data speak on whether momentum is a real anomaly on this universe rather than baking it in. A reader who prefers a Carhart 4 baseline could re-run §5.6 with Mom moved from the candidate add-on set to the always-included baseline; the qualitative comparisons across Ridge / Anchor / LM are stable to that choice.</p></li>
+<li><p><strong>Holding-window alignment in §5.6 α regression (v2).</strong> Strategy LS returns are 21-trading-day-held; FF5 is calendar-month. We align by timestamp-shift (signal-date T joined with FF5’s next-month row). The ~1-2 BD boundary spillover at the end of short calendar months produces a small magnitude bias in α (well under 5%), not in sign or t-statistic. A rigorous fix would build a daily-compounded calendar-month LS series specifically for the α test; we chose not to introduce a second LS-return convention in the project for marginal precision gain.</p></li>
 </ul>
 </section>
 <section id="consulted-works" class="level2">

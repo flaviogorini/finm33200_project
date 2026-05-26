@@ -128,7 +128,9 @@ def _fit_one(
     lhs_col: str,
     rhs_cols: list[str],
 ) -> dict | None:
-    """OLS with HAC (NW lag 6). Returns alpha, t-stat, R², n."""
+    """OLS with HAC (NW lag 6). Returns alpha, t-stat, R², n, plus the full
+    factor β / SE / t-stat dict so the writeup can render the entire
+    regression — not just α."""
     sub = df.dropna(subset=[lhs_col, *rhs_cols])
     if len(sub) < len(rhs_cols) + 5:
         return None
@@ -145,11 +147,21 @@ def _fit_one(
     alpha = float(model.params[0])
     se_alpha = float(model.bse[0])
     t_alpha = alpha / se_alpha if se_alpha > 0 else float("nan")
+
+    betas: dict[str, dict[str, float]] = {}
+    for i, col in enumerate(rhs_cols):
+        b = float(model.params[i + 1])
+        s = float(model.bse[i + 1])
+        t = b / s if s > 0 else float("nan")
+        betas[col] = {"beta": b, "se": s, "t": t}
+
     return {
         "alpha": alpha,
+        "se_alpha": se_alpha,
         "t": t_alpha,
         "r2": float(model.rsquared),
         "n": int(len(sub)),
+        "betas": betas,
     }
 
 

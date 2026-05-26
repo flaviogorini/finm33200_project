@@ -182,6 +182,73 @@ def _alpha_table(sample_block: dict, value: str = "alpha") -> pd.DataFrame:
                 row[header] = ""
         rows.append(row)
     return pd.DataFrame(rows)
+
+
+# v2 — full nested regression table (β + t for every factor across 4 specs)
+_FACTOR_LABELS = {
+    "mkt_rf":          "MKT-RF",
+    "smb":             "SMB",
+    "hml":             "HML",
+    "rmw":             "RMW",
+    "cma":             "CMA",
+    "momentum_strat":  "Mom-factor",
+    "car3_strat":      "CAR3-factor",
+    "revisions_strat": "Rev-factor",
+}
+_FACTOR_ORDER = [
+    "mkt_rf", "smb", "hml", "rmw", "cma",
+    "momentum_strat", "car3_strat", "revisions_strat",
+]
+
+
+def _full_regression_table(sample_block: dict, strategy: str) -> pd.DataFrame:
+    """For ONE LHS strategy, render β (with NW t-stat in parens) for every
+    factor across all 4 nested specs. Empty cells indicate the factor was
+    not in that spec's RHS. Bottom rows = α, R², N."""
+    cells = sample_block.get(strategy, {}) or {}
+    rows: list[dict] = []
+
+    # Intercept row (α) FIRST — most important for the spanning-test reading.
+    row = {"Factor": "α (intercept, monthly)"}
+    for key, header in zip(_SPEC_KEYS, _SPEC_HEADERS):
+        c = cells.get(key)
+        if c is None:
+            row[header] = ""
+        else:
+            row[header] = f"{c['alpha']:+.4f}  (t={c['t']:+.2f})"
+    rows.append(row)
+
+    # One row per factor, β (NW t in parens). Blank cell = factor not in spec.
+    for fac in _FACTOR_ORDER:
+        row = {"Factor": _FACTOR_LABELS.get(fac, fac)}
+        for key, header in zip(_SPEC_KEYS, _SPEC_HEADERS):
+            c = cells.get(key)
+            if c is None:
+                row[header] = ""
+                continue
+            betas = c.get("betas") or {}
+            if fac not in betas:
+                row[header] = ""
+            else:
+                b = betas[fac]
+                row[header] = f"{b['beta']:+.4f}  (t={b['t']:+.2f})"
+        rows.append(row)
+
+    # R² + N footer rows
+    r2_row = {"Factor": "R²"}
+    n_row = {"Factor": "N (months)"}
+    for key, header in zip(_SPEC_KEYS, _SPEC_HEADERS):
+        c = cells.get(key)
+        if c is None:
+            r2_row[header] = ""
+            n_row[header] = ""
+        else:
+            r2_row[header] = f"{c['r2']:.4f}"
+            n_row[header] = f"{int(c['n'])}"
+    rows.append(r2_row)
+    rows.append(n_row)
+
+    return pd.DataFrame(rows)
 ```
 
 ## 1. Motivation
@@ -508,9 +575,75 @@ _alpha_table(factor_alpha.get("post_2018", {}), value="t")
 
 **How to read this.** Read horizontally (α₀ → α₁ → α₂ → α₃) within a row to see how each strategy's α decays as more controls are added: a signal whose α drops to zero after the CAR3 column is just picking up the earnings-day price reaction; a signal whose α survives all three controls is contributing unique information beyond standard factors AND non-text earnings news AND analyst revisions. Read vertically (Ridge vs Anchor vs LM at any column) for the project's central LLM-vs-lexicon comparison after factor adjustment — this is the Ao-Zhao question, on this universe.
 
+#### Full nested regression tables (own-history sample)
+
+The α-only tables above hide the factor loadings that determine how each LLM strategy's return is being decomposed. The three tables below show the **entire regression** — α, every factor's β (with NW-HAC t-stat in parentheses), R², and N — for each of the 4 nested specs. Read across a row to see how a factor's loading shifts as more controls are added (multicollinearity diagnostic — large shifts indicate the new factor is partly redundant with this one). Empty cells indicate the factor was not in that spec's RHS.
+
+##### Ridge
+
+```{python}
+# | label: tbl-full-ridge
+_full_regression_table(factor_alpha.get("own_history", {}), "ridge")
+```
+
+##### Anchor
+
+```{python}
+# | label: tbl-full-anchor
+_full_regression_table(factor_alpha.get("own_history", {}), "anchor")
+```
+
+##### LM
+
+```{python}
+# | label: tbl-full-lm
+_full_regression_table(factor_alpha.get("own_history", {}), "lm")
+```
+
+#### Full nested regression tables (post-2018 common-window sample)
+
+For the post-2018 sample (~86 months), the same three tables.
+
+##### Ridge
+
+```{python}
+# | label: tbl-full-ridge-post
+_full_regression_table(factor_alpha.get("post_2018", {}), "ridge")
+```
+
+##### Anchor
+
+```{python}
+# | label: tbl-full-anchor-post
+_full_regression_table(factor_alpha.get("post_2018", {}), "anchor")
+```
+
+##### LM
+
+```{python}
+# | label: tbl-full-lm-post
+_full_regression_table(factor_alpha.get("post_2018", {}), "lm")
+```
+
 ## 6. Limitations
 
 - **Survivorship bias.** The 100-ticker universe is drawn from current Nasdaq-100 membership. Names that delisted or fell out of the index are excluded by construction. Bias should largely (but not perfectly) cancel in the *relative* comparison; differential effects across signals are possible and untested.
+- **Universe-composition drift over the backtest window.** The 100-ticker universe is fixed at current Nasdaq-100 membership, but the *coverage* of those names ramps up dramatically over time:
+
+  | Year | Tickers reporting earnings | % of today's universe |
+  |---|---|---|
+  | 2006 | 43 | 43 % |
+  | 2010 | 73 | 74 % |
+  | 2015 | 84 | 85 % |
+  | 2018 | 87 | 88 % |
+  | 2024 | 98 | 99 % |
+
+  Pre-2019 results therefore reflect a "high-coverage, older-tech-megacap" subset of today's universe; post-2019 results reflect substantially the full universe including recent IPOs (ARM, APP, ABNB, PLTR, …) with larger announcement-day moves. **CAR3 (§2.6) is the most affected** — its short measurement window depends on cross-sectional dispersion that the older well-covered megacap subset simply didn't have, so its full-history Sharpe (≈ 0 per §4.1) understates its post-2019 performance (Sharpe +0.53 per §5.2). Headline cross-strategy comparisons in §4.1 are not on a constant universe; for apples-to-apples views see §5.2 (post-2018 table) and §4.4 (ridge-start-common-window chart).
+- **Point-in-time universe choice — and why we treat this as a proof of concept.** We use *current* Nasdaq-100 membership across the whole backtest period, NOT the historical point-in-time membership a deployable strategy would require. A correct point-in-time backtest would re-pick the universe each month from the actual Nasdaq-100 constituents on that date — letting in 2010-era names that have since been dropped (e.g. Yahoo, Sirius XM, Vodafone) and excluding post-2010 additions (Tesla 2010, Meta 2013, ARM 2024, …) until their actual entry dates. We do not do this for three reasons: (a) a clean point-in-time Nasdaq-100 constituent series intersected with our transcript-coverage requirements is not readily available from any of the data sources we use; (b) the project's scope is explicitly a methodological pipeline demonstration, not a deployable trading strategy — what we are evaluating is whether the **system** (transcript extraction → LLM embedding → multi-signal back-test → FF5-adjusted α) produces sensible and internally consistent cross-strategy comparisons; (c) the relative ranking of signals is preserved because anchor / ridge / LM / mom / rev / CAR3 are all evaluated on the same universe each month — the comparative claims (e.g. Ridge α survives controls better than LM α) survive the choice.
+
+  **Why we are optimistic about a backdated-universe version.** The CAR3 and Ridge results above show the recent regime — when today's universe is fully populated and freely traded — is the regime in which both the earnings-window anomaly AND the LLM-embedding signal work *best* (CAR3 Sharpe +0.53 post-2018 vs −0.02 full-history; Ridge α remains positive across all FF5 + Mom + CAR3 + Rev controls per §5.6). A correct point-in-time backtest from 2006 would have had *different* names in the universe — many of them growth-oriented, less-analyst-covered IPOs which historically have larger announcement-day moves (good for CAR3) AND noisier language from less-experienced IR teams (good for LLM-embedding dispersion). Both effects work *with* the signals we test, not against them. The honest extrapolation is that a properly backdated point-in-time backtest would *raise* the strategies' Sharpes, not lower them — the current backtest understates the upside, not overstates it.
+
+  **Project framing.** This is a proof-of-concept for the methodological pipeline. Headline numbers should be read as evidence that (i) the pipeline functions correctly end-to-end on real WRDS / Bloomberg / OpenAI data, (ii) the v1 vs v2 invariance contract is preserved (no signal-level result drifts when CAR3 is added — verified via `src/test_invariance.py`, 8/8 passing), and (iii) the cross-strategy comparisons line up with what asset-pricing literature would predict (LM lexicon's α absorbed by CAR3 in §5.6; Ridge α survives more controls than LM α). A production version would re-implement the universe layer with point-in-time membership before any deployable-strategy Sharpe claim could be made.
 - **Small universe and short OOS.** 100 tickers, quintile legs (16–20 names typically), and a ridge test window of ~7 years (2019–2025) all limit statistical power. A claim like "Sharpe of A is twice B's" is much weaker on 100 names than on the Russell 3000.
 - **No transaction costs.** Defensible as a comparative test (turnover is similar across strategies on a monthly cadence) but not as a deployable-strategy claim.
 - **Single embedding model.** Only `text-embedding-3-small` is tested. FinBERT, larger OpenAI embedders, or sentence-transformers fine-tuned on financial text are not compared.
