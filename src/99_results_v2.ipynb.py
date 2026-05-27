@@ -15,7 +15,7 @@
 # %% [markdown]
 # # LLM Embeddings vs Traditional Signals on Earnings Call Transcripts — v2
 #
-# **v2 extensions over the original notebook** (cf. `99_results.ipynb.py`):
+# **Extensions over the original 5-signal notebook**:
 #
 # - Adds **CAR3** (announcement-window cumulative return, [-1, +1]) as a 6th
 #   first-class signal (`sig_car3`).

@@ -629,7 +629,7 @@ results notebook.
 | 9. Build unified signal panel                  | `build_signal_panel.py`                                                                     | `_data/signal_panel_monthly.parquet`                                                                 |
 | 10. Run backtests                              | `run_backtests.py` (calls `backtest.py`)                                                    | `_data/results_*.parquet`, `_data/metrics_*.json`, `_data/ic_*.{json,parquet}`                       |
 | 11. Joint regression                           | `joint_regression.py`                                                                       | `_data/fm_results.json`                                                                              |
-| 12. Render results notebook                    | `99_results.ipynb.py` via `jupytext` + `nbconvert`                                          | `_output/99_results.ipynb`, `_output/99_results.html`, `_output/99_*.png`                            |
+| 12. Render results notebook                    | `99_results_v2.ipynb.py` via `jupytext` + `nbconvert`                                       | `_output/99_results_v2.ipynb`, `_output/99_results_v2.html`, `_output/99_v2_*.png`                   |
 | 13. Pytest                                     | `task_run_pytest`                                                                           | `_output/pytest_results.xml`                                                                         |
 
 The methodology is encoded in `src/`; the notebook is a **thin reader**
@@ -776,9 +776,8 @@ where $t-1$ is the previous call for the same ticker.
 
 ## 11. v2 additions — CAR3, signal correlations, nested α regression
 
-The v2 writeup (`reports/writeup_v2.qmd` → `reports/writeup_v2.html`) extends
-the v1 5-signal analysis with three additions. The v1 sections above are
-unchanged and `reports/writeup.html` remains the v1 reference. All v2 changes
+The writeup (`reports/writeup_v2.qmd` → `reports/writeup_v2.html`) extends
+the original 5-signal analysis with three additions. All changes
 to pipeline source files are **purely additive** for the 5 original signals'
 code paths — existing strategies' backtest metrics are by construction
 unchanged.
@@ -885,8 +884,8 @@ New doit tasks (additive; existing tasks unchanged):
 | -------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------- |
 | `build_factor_baseline`                | `lm_scores_transcripts.parquet`, `US_Companies_Hist_Data.parquet` | `ff5_monthly.parquet`, `car3_per_call.parquet`                        |
 | `factor_regression`                    | `ff5_monthly.parquet`, `results_main.parquet`                     | `strategy_factor_returns_monthly.parquet`, `factor_alpha.json`        |
-| `run_notebooks:99_results_v2.ipynb.py` | all the above + existing v1 inputs                                | `99_v2_*.png`, `signal_corr_stock.json`, `signal_corr_portfolio.json` |
-| `write_report_v2`                      | all of the above                                                  | `reports/writeup_v2.html`                                             |
+| `run_notebooks:99_results_v2.ipynb.py` | all the above + existing inputs                                   | `99_v2_*.png`, `signal_corr_stock.json`, `signal_corr_portfolio.json` |
+| `write_report`                         | all of the above                                                  | `reports/writeup_v2.html`                                             |
 
 Modified tasks: `build_panel` (now also `file_dep` on
 `car3_per_call.parquet`). All other tasks are unchanged.

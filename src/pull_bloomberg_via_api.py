@@ -434,7 +434,9 @@ def print_manifest_summary() -> None:
 
 def main() -> None:
     use_bbg = config(
-        "BLOOMBERG_TERMINAL_AVAILABLE", default=False, cast=bool
+        "BLOOMBERG_TERMINAL_AVAILABLE",
+        default=False,
+        cast=lambda v: str(v).lower() in ("1", "true", "yes", "y", "t"),
     )
     if use_bbg:
         run_live_pull()

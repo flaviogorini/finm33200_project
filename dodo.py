@@ -25,8 +25,8 @@ Pipeline (run ``doit list`` to see all tasks):
     train_ridge                   RidgeCV on Δ call vectors
     run_backtests                 5 strategies x 3 specs + IC time series
     joint_regression              Fama-MacBeth + Newey-West (HAC lag 6)
-    run_notebooks                 Jupytext convert + execute + html for 99_results
-    write_report                  Render reports/writeup.qmd to reports/writeup.html
+    run_notebooks                 Jupytext convert + execute + html for 99_results_v2
+    write_report                  Render reports/writeup_v2.qmd to reports/writeup_v2.html
     run_pytest                    Tests + calendar parity assertion
 
 """
@@ -587,29 +587,6 @@ def task_factor_regression():
 
 
 notebook_tasks = {
-    "99_results.ipynb.py": {
-        "path": Path("./src/99_results.ipynb.py"),
-        "file_dep": [
-            DATA_DIR / "signal_panel_monthly.parquet",
-            DATA_DIR / "metrics_main.json",
-            DATA_DIR / "metrics_stale_excl.json",
-            DATA_DIR / "metrics_post2018.json",
-            DATA_DIR / "results_main.parquet",
-            DATA_DIR / "results_stale_excl.parquet",
-            DATA_DIR / "results_post2018.parquet",
-            DATA_DIR / "ic_timeseries.parquet",
-            DATA_DIR / "ic_summary.json",
-            DATA_DIR / "fm_results.json",
-        ],
-        "targets": [
-            OUTPUT_DIR / "99_hit_rates_main.png",
-            OUTPUT_DIR / "99_rolling_ic.png",
-            OUTPUT_DIR / "99_cum_returns_period1_2008.png",
-            OUTPUT_DIR / "99_drawdown_period1_2008.png",
-            OUTPUT_DIR / "99_cum_returns_period2_ridge.png",
-            OUTPUT_DIR / "99_drawdown_period2_ridge.png",
-        ],
-    },
     "99_results_v2.ipynb.py": {
         "path": Path("./src/99_results_v2.ipynb.py"),
         "file_dep": [
@@ -669,39 +646,7 @@ def task_run_notebooks():
 
 
 def task_write_report():
-    """Render reports/writeup.qmd to reports/writeup.html via Quarto."""
-    qmd = Path("./reports/writeup.qmd")
-    html = Path("./reports/writeup.html")
-    _configure_quarto_env()
-    quarto = _find_quarto()
-    return {
-        "actions": [f"{quarto} render {qmd} --to html"],
-        "file_dep": [
-            str(qmd),
-            str(DATA_DIR / "metrics_main.json"),
-            str(DATA_DIR / "metrics_stale_excl.json"),
-            str(DATA_DIR / "metrics_post2018.json"),
-            str(DATA_DIR / "ic_summary.json"),
-            str(DATA_DIR / "fm_results.json"),
-            str(OUTPUT_DIR / "99_hit_rates_main.png"),
-            str(OUTPUT_DIR / "99_rolling_ic.png"),
-            str(OUTPUT_DIR / "99_cum_returns_period1_2008.png"),
-            str(OUTPUT_DIR / "99_cum_returns_period2_ridge.png"),
-            str(OUTPUT_DIR / "99_drawdown_period2_ridge.png"),
-        ],
-        "targets": [str(html)],
-        "clean": True,
-        "verbosity": 2,
-    }
-
-
-def task_write_report_v2():
-    """Render reports/writeup_v2.qmd to reports/writeup_v2.html via Quarto.
-
-    v2 adds CAR3 as a 6th first-class signal, §5.4 signal correlations,
-    and §5.6 nested time-series α progression. The v1 writeup at
-    reports/writeup.html stays untouched as the 5-signal reference.
-    """
+    """Render reports/writeup_v2.qmd to reports/writeup_v2.html via Quarto."""
     qmd = Path("./reports/writeup_v2.qmd")
     html = Path("./reports/writeup_v2.html")
     _configure_quarto_env()

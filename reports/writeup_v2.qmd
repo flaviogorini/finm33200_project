@@ -160,28 +160,6 @@ def _corr_table(corr_dict: dict) -> pd.DataFrame:
 # v2 — nested α progression table renderer
 _SPEC_KEYS = ["alpha_0", "alpha_1", "alpha_2", "alpha_3"]
 _SPEC_HEADERS = ["α₀ (FF5)", "α₁ (+Mom)", "α₂ (+CAR3)", "α₃ (+Rev)"]
-_ALPHA_STRATEGIES = ["ridge", "anchor", "lm"]
-
-
-def _alpha_table(sample_block: dict, value: str = "alpha") -> pd.DataFrame:
-    if not sample_block:
-        return pd.DataFrame()
-    rows = []
-    for strat in _ALPHA_STRATEGIES:
-        cells = sample_block.get(strat, {}) or {}
-        row = {"Strategy": STRATEGY_LABELS.get(strat, strat).split(". ", 1)[-1]}
-        for k, header in zip(_SPEC_KEYS, _SPEC_HEADERS):
-            c = cells.get(k)
-            if c is None:
-                row[header] = ""
-            elif value == "alpha":
-                row[header] = f"{c.get('alpha', float('nan')):+.4f}"
-            elif value == "t":
-                row[header] = f"{c.get('t', float('nan')):+.2f}"
-            else:
-                row[header] = ""
-        rows.append(row)
-    return pd.DataFrame(rows)
 
 
 # v2 — full nested regression table (β + t for every factor across 4 specs)
@@ -524,7 +502,6 @@ _fm_table(fm)
 
 **How to read this.** This is the strict *marginal* test: after the other five signals are in the regression, does this one still load? With monthly cross-sectional z-scoring, a coefficient is significant at the 5 % level when |t| > ~2. The joint $R^2$ above is the time-series average of the monthly cross-sectional $R^2$ — a low number is expected for one-month-ahead stock returns even on a six-signal regression. The intercept $\alpha$ is the average cross-sectional mean return that none of the six signals explains; a positive $\alpha$ with a high t-stat is simply the universe drifting up over the sample.
 
-**Note on v1 vs v2.** The numerical β / t values in this table differ from §5.4 of the v1 writeup *for every signal*, not just CAR3 — this is by design. The regression itself has changed (a 6th column added), so OLS coefficient estimates for every column shift to whatever is incrementally explained by that signal *after* the new CAR3 column is partialled out. This is the new test result, not a regression bug.
 
 ### 5.6 Nested time-series α progression
 
@@ -545,39 +522,11 @@ _fm_table(fm)
 
 Newey-West HAC standard errors (lag 6, consistent with §5.5). No risk-free-rate subtraction on the LHS — long-short portfolios are zero-cost so a funding-cost adjustment is mechanically inappropriate. The strategy LS series uses the project's 21-trading-day spec; FF5 is calendar-month — we align by timestamp-shift (signal-date T joined to FF5's next-month row). The residual ~1-2 business-day boundary mismatch is documented but not corrected; it does not change the sign or t-statistic of any reported α materially.
 
-**α (decimal monthly residual return), own-history sample.**
-
-```{python}
-# | label: tbl-alpha-own
-_alpha_table(factor_alpha.get("own_history", {}), value="alpha")
-```
-
-**t(α), own-history sample.**
-
-```{python}
-# | label: tbl-talpha-own
-_alpha_table(factor_alpha.get("own_history", {}), value="t")
-```
-
-**α, post-2018 common-window sample.**
-
-```{python}
-# | label: tbl-alpha-post
-_alpha_table(factor_alpha.get("post_2018", {}), value="alpha")
-```
-
-**t(α), post-2018 common-window sample.**
-
-```{python}
-# | label: tbl-talpha-post
-_alpha_table(factor_alpha.get("post_2018", {}), value="t")
-```
-
-**How to read this.** Read horizontally (α₀ → α₁ → α₂ → α₃) within a row to see how each strategy's α decays as more controls are added: a signal whose α drops to zero after the CAR3 column is just picking up the earnings-day price reaction; a signal whose α survives all three controls is contributing unique information beyond standard factors AND non-text earnings news AND analyst revisions. Read vertically (Ridge vs Anchor vs LM at any column) for the project's central LLM-vs-lexicon comparison after factor adjustment — this is the Ao-Zhao question, on this universe.
+**How to read the tables below.** Read horizontally (α₀ → α₁ → α₂ → α₃) within a row to see how each strategy's α decays as more controls are added: a signal whose α drops to zero after the CAR3 column is just picking up the earnings-day price reaction; a signal whose α survives all three controls is contributing unique information beyond standard factors AND non-text earnings news AND analyst revisions. Read vertically (Ridge vs Anchor vs LM at any column) for the project's central LLM-vs-lexicon comparison after factor adjustment — this is the Ao-Zhao question, on this universe.
 
 #### Full nested regression tables (own-history sample)
 
-The α-only tables above hide the factor loadings that determine how each LLM strategy's return is being decomposed. The three tables below show the **entire regression** — α, every factor's β (with NW-HAC t-stat in parentheses), R², and N — for each of the 4 nested specs. Read across a row to see how a factor's loading shifts as more controls are added (multicollinearity diagnostic — large shifts indicate the new factor is partly redundant with this one). Empty cells indicate the factor was not in that spec's RHS.
+Each table below shows the **entire regression** — α, every factor's β (with NW-HAC t-stat in parentheses), R², and N — for each of the 4 nested specs. Read across a row to see how a factor's loading shifts as more controls are added (multicollinearity diagnostic — large shifts indicate the new factor is partly redundant with this one). Empty cells indicate the factor was not in that spec's RHS.
 
 ##### Ridge
 
@@ -624,6 +573,16 @@ _full_regression_table(factor_alpha.get("post_2018", {}), "anchor")
 # | label: tbl-full-lm-post
 _full_regression_table(factor_alpha.get("post_2018", {}), "lm")
 ```
+
+#### Interpretation
+
+**Anchor cosine is the strongest text signal post-sample.** In the post-2018 common window, Anchor's α *recovers* from +0.29 % to +0.37 % monthly when analyst revisions are added as the final control (α₂ → α₃), with t = 1.49 — the highest t-statistic among the three text strategies at the fully-controlled specification. This recovery indicates that the anchor signal is capturing language content orthogonal to all four non-text factors: the market, size/value/profitability/investment, momentum, the earnings-window price reaction, and analyst consensus revisions. Over the full own-history sample (229 months), Anchor α₃ = +0.37 % with **t = 2.03** — the *only* statistically significant α among the three text strategies at conventional levels.
+
+**Ridge + PCA is economically meaningful but statistically underpowered.** Ridge α decays monotonically from +0.42 % (FF5 only) to +0.28 % (all controls) in both the own-history and post-2018 windows — each added factor absorbs a slice of its return, but none individually eliminates it. The problem is not signal absence but sample length: with only 85 months of out-of-sample predictions (Feb 2019 onward), t-statistics remain below 1.2 throughout. A longer OOS window — or a universe large enough to reduce cross-sectional noise — could push Ridge toward significance; at present the data cannot distinguish its α from zero even though the economic magnitude (+0.28 % monthly ≈ 3.4 % annualised, after all controls) is comparable to Anchor's.
+
+**The LM lexicon carries no independent return information post-2018.** LM α starts near zero in the FF5-only specification (+0.05 %, t = 0.18) and turns *negative* once CAR3 and revisions are added (−0.08 %, t = −0.30). In the full own-history sample the pattern is the same: α₃ = +0.13 %, t = 0.68 — not significant. This is consistent with the S&P observation (Ao and Zhao, 2025) that lexicon-based approaches have weakened over time. The Loughran-McDonald dictionary was constructed from 1990s–2000s 10-K filings; corporate earnings-call language has since evolved toward more coached, nuanced phrasing that does not map cleanly to static positive/negative word lists. The embedding-based approaches (Anchor, Ridge) capture semantic meaning beyond keyword matching, which is why they survive the same controls that absorb the lexicon signal entirely.
+
+**Why Anchor outperforms Ridge on statistical grounds.** Anchor does not require a training window, so it produces signal values from 2006 onward (229 months in the own-history sample vs. Ridge's 85). That threefold increase in sample size is the primary reason Anchor reaches t = 2.03 while Ridge's comparable α magnitude cannot clear t = 1.2. The hand-crafted anchor sentences also impose a stable, interpretable projection direction on the embedding space, whereas Ridge's learned PCA + regularisation weights are re-estimated each year and may overfit to the in-sample embedding structure of the training window. On the other hand, Ridge answers a question Anchor cannot: *is there a return-predictive direction in the embedding delta that is not aligned with the hand-written sentiment axis?* The fact that Ridge α survives all controls — even if not statistically significant — suggests that such directions exist but require either more data or a larger cross-section to confirm.
 
 ## 6. Limitations
 
