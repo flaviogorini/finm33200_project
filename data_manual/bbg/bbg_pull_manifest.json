@@ -1,0 +1,24 @@
+{
+  "pulled_at": "2026-05-26T21:06:41",
+  "mode": "live",
+  "ticker_count_requested": 101,
+  "ticker_count_returned": 101,
+  "tickers_routed_via_cusip": [],
+  "tickers_with_no_data": [],
+  "fields": [
+    "PX_LAST",
+    "BEST_NET_INCOME"
+  ],
+  "start_date": "20050101",
+  "end_date": "20260526",
+  "frequency": "DAILY",
+  "overrides": "BEST_FPERIOD_OVERRIDE=1BF for BEST_NET_INCOME; none for PX_LAST",
+  "bdh_options": {
+    "periodicitySelection": "DAILY",
+    "adjustmentNormal": true,
+    "adjustmentSplit": true,
+    "adjustmentAbnormal": true,
+    "adjustmentFollowDPDF": false
+  },
+  "blp_package": "blp (Bloomberg blpapi wrapper)"
+}

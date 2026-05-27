@@ -10,9 +10,14 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime
+import queue
+import threading
+import time
+import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import date, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import pandas as pd
 import wrds
@@ -224,41 +229,255 @@ def query_raw_metadata(
     return db.raw_sql(query, params={"start_date": start_date, "end_date": end_date})
 
 
+def _build_components_query(
+    person: dict[str, str],
+    component: dict[str, str],
+    id_chunk: list[int],
+) -> str:
+    return f"""
+        SELECT
+            p.transcriptid::bigint AS transcript_id,
+            p.transcriptcomponentid::bigint AS component_id,
+            p.componentorder AS component_order,
+            p.transcriptcomponenttypeid AS transcript_component_type_id,
+            p.transcriptcomponenttypename AS section_type,
+            p.transcriptpersonid AS transcript_person_id,
+            p.transcriptpersonname AS speaker_name,
+            p.companyofperson AS speaker_company_name,
+            p.speakertypeid AS speaker_type_id,
+            c.componenttext AS component_text
+        FROM {fqtn(person["schema"], person["table"])} AS p
+        JOIN {fqtn(component["schema"], component["table"])} AS c
+          ON c.transcriptcomponentid = p.transcriptcomponentid
+        WHERE p.transcriptid IN ({sql_id_list(id_chunk)})
+        ORDER BY p.transcriptid, p.componentorder
+    """
+
+
+def _fetch_company_components(
+    company_id: int,
+    transcript_ids: list[int],
+    person: dict[str, str],
+    component: dict[str, str],
+    conn_queue: "queue.Queue[wrds.Connection]",
+    connect_fn: Callable[[], wrds.Connection],
+    chunk_size: int,
+) -> tuple[int, pd.DataFrame | None, str | None]:
+    """Pull all components for one ciq_company_id. Returns (cid, df, error).
+
+    Catches all exceptions and returns the error string instead of raising,
+    so the worker pool can collect partial results. On error, the worker's
+    WRDS connection is closed (it may be poisoned) and replaced with a fresh
+    one so it does not contaminate other workers.
+    """
+    conn = conn_queue.get()
+    try:
+        frames: list[pd.DataFrame] = []
+        for start in range(0, len(transcript_ids), chunk_size):
+            id_chunk = transcript_ids[start : start + chunk_size]
+            query = _build_components_query(person, component, id_chunk)
+            frames.append(conn.raw_sql(query))
+        df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        return (company_id, df, None)
+    except Exception as exc:  # broad on purpose: never poison the pool
+        try:
+            conn.close()
+        except Exception:
+            pass
+        try:
+            conn = connect_fn()
+        except Exception as reconnect_exc:
+            # Pool degrades by one; outer finally still handles cleanup.
+            return (
+                company_id,
+                None,
+                f"{exc!r}; reconnect failed: {reconnect_exc!r}",
+            )
+        return (company_id, None, repr(exc))
+    finally:
+        conn_queue.put(conn)
+
+
 def query_raw_components(
-    db: wrds.Connection,
+    connect_fn: Callable[[], wrds.Connection],
     schema_info: dict[str, Any],
     metadata: pd.DataFrame,
     chunk_size: int = 200,
-) -> pd.DataFrame:
+    workers: int = 4,
+    db: wrds.Connection | None = None,
+    ticker_lookup: dict[int, str] | None = None,
+) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
+    """Pull raw transcript components for every ciq_company_id in `metadata`.
+
+    Shards work by ciq_company_id (one job per ticker). Within a job, transcript
+    IDs are still queried in chunks of `chunk_size`. With ``workers == 1`` the
+    caller's ``db`` is reused for bit-for-bit identical behavior to the pre-pool
+    implementation. With ``workers > 1`` a thread pool plus a small WRDS
+    connection pool runs jobs concurrently; per-ticker errors are collected
+    instead of raised so a slow run doesn't lose 27 minutes of work to a single
+    bad transcript.
+
+    Returns ``(components_df, failed_cases)`` where ``failed_cases`` is a list
+    of ``{"ciq_company_id", "ticker", "error"}`` dicts (empty on full success).
+    """
     if metadata.empty:
-        return pd.DataFrame()
+        return pd.DataFrame(), []
+
     person = schema_info["component_person_table"]
     component = schema_info["component_text_table"]
-    transcript_ids = sorted(set(metadata["transcript_id"].dropna().astype(int).tolist()))
+
+    grouped_series = (
+        metadata.dropna(subset=["transcript_id", "ciq_company_id"])
+        .assign(
+            transcript_id=lambda d: d["transcript_id"].astype("int64"),
+            ciq_company_id=lambda d: d["ciq_company_id"].astype("int64"),
+        )
+        .groupby("ciq_company_id")["transcript_id"]
+        .apply(lambda s: sorted(set(s.tolist())))
+    )
+    grouped: dict[int, list[int]] = {
+        int(cid): tids for cid, tids in grouped_series.items()
+    }
+    if ticker_lookup is None:
+        ticker_lookup = {}
+        if "ticker" in metadata.columns:
+            ticker_lookup = (
+                metadata.dropna(subset=["ciq_company_id"])
+                .assign(ciq_company_id=lambda d: d["ciq_company_id"].astype("int64"))
+                .groupby("ciq_company_id")["ticker"]
+                .first()
+                .astype(str)
+                .to_dict()
+            )
+
+    total = len(grouped)
+    failed_cases: list[dict[str, Any]] = []
     frames: list[pd.DataFrame] = []
-    for start in range(0, len(transcript_ids), chunk_size):
-        id_chunk = transcript_ids[start : start + chunk_size]
-        query = f"""
-            SELECT
-                p.transcriptid::bigint AS transcript_id,
-                p.transcriptcomponentid::bigint AS component_id,
-                p.componentorder AS component_order,
-                p.transcriptcomponenttypeid AS transcript_component_type_id,
-                p.transcriptcomponenttypename AS section_type,
-                p.transcriptpersonid AS transcript_person_id,
-                p.transcriptpersonname AS speaker_name,
-                p.companyofperson AS speaker_company_name,
-                p.speakertypeid AS speaker_type_id,
-                c.componenttext AS component_text
-            FROM {fqtn(person["schema"], person["table"])} AS p
-            JOIN {fqtn(component["schema"], component["table"])} AS c
-              ON c.transcriptcomponentid = p.transcriptcomponentid
-            WHERE p.transcriptid IN ({sql_id_list(id_chunk)})
-            ORDER BY p.transcriptid, p.componentorder
-        """
-        frames.append(db.raw_sql(query))
+
+    if workers == 1:
+        if db is None:
+            db = connect_fn()
+            close_db_after = True
+        else:
+            close_db_after = False
+        try:
+            for i, (cid, tids) in enumerate(grouped.items(), start=1):
+                ticker = ticker_lookup.get(int(cid), "")
+                started = time.time()
+                try:
+                    sub_frames: list[pd.DataFrame] = []
+                    for start in range(0, len(tids), chunk_size):
+                        id_chunk = tids[start : start + chunk_size]
+                        query = _build_components_query(person, component, id_chunk)
+                        sub_frames.append(db.raw_sql(query))
+                    if sub_frames:
+                        frames.append(pd.concat(sub_frames, ignore_index=True))
+                    print(
+                        f"[{i}/{total}] ciq_company_id={cid} ticker={ticker} "
+                        f"done in {time.time() - started:.1f}s",
+                        flush=True,
+                    )
+                except Exception as exc:
+                    err = repr(exc)
+                    print(
+                        f"[{i}/{total}] ciq_company_id={cid} ticker={ticker} "
+                        f"FAILED: {err}",
+                        flush=True,
+                    )
+                    failed_cases.append(
+                        {
+                            "ciq_company_id": int(cid),
+                            "ticker": ticker,
+                            "error": err,
+                        }
+                    )
+        finally:
+            if close_db_after:
+                try:
+                    db.close()
+                except Exception:
+                    pass
+    else:
+        conn_queue: "queue.Queue[wrds.Connection]" = queue.Queue()
+        all_conns: list[wrds.Connection] = []
+        conns_lock = threading.Lock()
+
+        def _open_tracked_conn() -> wrds.Connection:
+            c = connect_fn()
+            with conns_lock:
+                all_conns.append(c)
+            return c
+
+        try:
+            for _ in range(workers):
+                conn_queue.put(_open_tracked_conn())
+
+            progress_lock = threading.Lock()
+            counter = {"i": 0}
+
+            def _job(cid: int, tids: list[int]):
+                started = time.time()
+                result = _fetch_company_components(
+                    cid,
+                    tids,
+                    person,
+                    component,
+                    conn_queue,
+                    _open_tracked_conn,
+                    chunk_size,
+                )
+                _cid, _df, err = result
+                ticker = ticker_lookup.get(int(cid), "")
+                dt = time.time() - started
+                with progress_lock:
+                    counter["i"] += 1
+                    i = counter["i"]
+                    if err is None:
+                        print(
+                            f"[{i}/{total}] ciq_company_id={cid} ticker={ticker} "
+                            f"done in {dt:.1f}s",
+                            flush=True,
+                        )
+                    else:
+                        print(
+                            f"[{i}/{total}] ciq_company_id={cid} ticker={ticker} "
+                            f"FAILED: {err}",
+                            flush=True,
+                        )
+                return result
+
+            with ThreadPoolExecutor(max_workers=workers) as ex:
+                futures = [
+                    ex.submit(_job, cid, tids) for cid, tids in grouped.items()
+                ]
+                for fut in as_completed(futures):
+                    cid, df, err = fut.result()
+                    if err is None:
+                        if df is not None and not df.empty:
+                            frames.append(df)
+                    else:
+                        failed_cases.append(
+                            {
+                                "ciq_company_id": int(cid),
+                                "ticker": ticker_lookup.get(int(cid), ""),
+                                "error": err,
+                            }
+                        )
+        finally:
+            # Close every connection we ever opened. Drains the queue and
+            # picks up any replacements that landed there after worker errors.
+            for c in all_conns:
+                try:
+                    c.close()
+                except Exception:
+                    pass
+
     components = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
-    return components
+    if not components.empty:
+        components = components.sort_values(
+            ["transcript_id", "component_order"]
+        ).reset_index(drop=True)
+    return components, failed_cases
 
 
 def add_mapping_fields(
@@ -464,7 +683,10 @@ def write_outputs(
     end_date: str,
     sample_tickers: list[str],
     paths: dict[str, Path],
+    failed_cases: list[dict[str, Any]] | None = None,
 ) -> None:
+    if failed_cases is None:
+        failed_cases = []
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     QC_DIR.mkdir(parents=True, exist_ok=True)
     label = paths["summary"].name.split("_raw_extraction_summary.md")[0]
@@ -562,7 +784,7 @@ def write_outputs(
             "deduped_metadata_rows": len(deduped_metadata),
             "deduped_component_rows": len(deduped_components),
         },
-        "failed_cases": [],
+        "failed_cases": failed_cases,
     }
     paths["manifest"].write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
@@ -582,7 +804,16 @@ def write_outputs(
     ].to_markdown(index=False)
     duplicate_share_class = qc[qc["is_duplicate_share_class"]]
     low_coverage = qc[qc["ticker"].eq("SNDK")]
-    next_recommendation = (
+    if failed_cases:
+        failed_lines = "\n".join(
+            f"- `ciq_company_id={fc.get('ciq_company_id')}` "
+            f"(ticker `{fc.get('ticker') or '?'}`): {fc.get('error')}"
+            for fc in failed_cases
+        )
+        failed_section = f"{len(failed_cases)} ticker(s) failed component extraction:\n\n{failed_lines}"
+    else:
+        failed_section = "No tickers failed component extraction."
+    base_recommendation = (
         "Pilot20 raw extraction succeeded with no failed tickers. Review the "
         "low-coverage SNDK case and the shorter-coverage ARM/APP cases, then "
         "proceed to full Nasdaq-100 raw extraction if these exceptions are acceptable."
@@ -595,6 +826,17 @@ def write_outputs(
         else "Small-sample raw extraction succeeded with no failed tickers. Review AAPL and "
         "sample component structure, then proceed to a 20-ticker raw extraction pilot "
         "before full Nasdaq-100 extraction."
+    )
+    next_recommendation = (
+        base_recommendation
+        if not failed_cases
+        else (
+            f"{len(failed_cases)} ticker(s) failed component extraction and are "
+            "missing from the raw component parquet. Investigate the errors in "
+            "the Failed Cases section before treating this run as complete; "
+            "rerun with --workers 1 for the failed tickers if a transient WRDS "
+            "error is suspected.\n\n" + base_recommendation
+        )
     )
     summary = f"""# {phase_name} Raw Transcript Extraction Summary
 
@@ -675,6 +917,10 @@ additional Final/Q1-Q4/headline filters.
 
 {low_coverage.to_markdown(index=False) if not low_coverage.empty else 'No requested low-coverage ticker was included.'}
 
+## Failed Cases
+
+{failed_section}
+
 ## Recommendation
 
 {next_recommendation}
@@ -701,6 +947,16 @@ def build_argparser() -> argparse.ArgumentParser:
     parser.add_argument("--universe-path", type=Path, default=UNIVERSE_PATH)
     parser.add_argument("--availability-path", type=Path, default=AVAILABILITY_PATH)
     parser.add_argument("--schema-output-path", type=Path, default=SCHEMA_OUTPUT_PATH)
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=4,
+        help=(
+            "Parallel WRDS workers for the component-text pull. 1 = serial "
+            "(matches pre-pool behavior). >8 is clamped with a warning to "
+            "respect WRDS concurrent-session limits."
+        ),
+    )
     return parser
 
 
@@ -711,6 +967,16 @@ def main() -> None:
         if args.tickers
         else None
     )
+
+    requested_workers = max(1, int(args.workers))
+    if requested_workers > 8:
+        warnings.warn(
+            f"--workers={requested_workers} exceeds the recommended cap of 8; "
+            f"clamping to 8 to respect WRDS concurrent-session limits.",
+            stacklevel=2,
+        )
+        requested_workers = 8
+
     paths = output_paths(args.label)
     run_id = f"{args.label}_raw_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
@@ -723,7 +989,21 @@ def main() -> None:
     selected_tickers = selected["ticker"].dropna().astype(str).str.upper().tolist()
     company_ids = selected["ciq_company_id"].dropna().astype(int).unique().tolist()
 
+    # Build ciq_company_id -> ticker map up front so the worker pool can emit
+    # ticker-labeled progress lines. query_raw_metadata returns the raw WRDS
+    # row (which has companyid but not the universe ticker); the join with
+    # the mapping happens later in add_mapping_fields.
+    ticker_lookup = (
+        selected.dropna(subset=["ciq_company_id"])
+        .assign(ciq_company_id=lambda d: d["ciq_company_id"].astype("int64"))
+        .groupby("ciq_company_id")["ticker"]
+        .first()
+        .astype(str)
+        .to_dict()
+    )
+
     db = connect_wrds()
+    failed_cases: list[dict[str, Any]] = []
     try:
         schema_info = inspect_raw_transcript_schema(db, schema_output_path=args.schema_output_path)
         metadata = query_raw_metadata(
@@ -733,9 +1013,19 @@ def main() -> None:
             start_date=args.start_date,
             end_date=args.end_date,
         )
-        components = query_raw_components(db, schema_info=schema_info, metadata=metadata)
+        components, failed_cases = query_raw_components(
+            connect_fn=connect_wrds,
+            schema_info=schema_info,
+            metadata=metadata,
+            workers=requested_workers,
+            db=db,
+            ticker_lookup=ticker_lookup,
+        )
     finally:
-        db.close()
+        try:
+            db.close()
+        except Exception:
+            pass
 
     metadata, components = add_mapping_fields(metadata, components, selected, run_id)
     deduped_metadata = dedupe_metadata(metadata, components)
@@ -752,12 +1042,18 @@ def main() -> None:
         end_date=args.end_date,
         sample_tickers=selected_tickers,
         paths=paths,
+        failed_cases=failed_cases,
     )
     print(f"Wrote raw metadata: {paths['raw_metadata']}")
     print(f"Wrote raw components: {paths['raw_components']}")
     print(f"Wrote deduped components: {paths['deduped_components']}")
     print(f"Wrote QC: {paths['qc']}")
     print(f"Wrote summary: {paths['summary']}")
+    if failed_cases:
+        print(
+            f"WARNING: {len(failed_cases)} ciq_company_id(s) failed to extract "
+            f"components; see manifest['failed_cases'] for details."
+        )
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ Pipeline (run ``doit list`` to see all tasks):
     build_meta:universe   Wikipedia -> Nasdaq-100 constituents CSV
     build_meta:ciq_mapping  WRDS metadata -> CIQ company-ID mapping CSV
     pull:manual_macro     Bloomberg macro Excel -> parquet
-    pull:manual_companies Bloomberg per-company Excel -> parquet (PX_LAST, BEst NI, ...)
+    pull:manual_companies Bloomberg per-company API (blpapi) -> parquet (PX_LAST, BEst NI)
     pull:transcripts      WRDS Capital IQ Nasdaq-100 transcript bulk pull (slow)
     clean:transcripts     Clean + segment transcripts -> processed parquet
     cleaning_review       QC review of cleaned transcripts -> _output/transcripts/qc/
@@ -228,10 +228,13 @@ def task_pull():
     }
     yield {
         "name": "manual_companies",
-        "doc": "Parse manual Bloomberg company prediction Excel into parquet",
+        "doc": (
+            "Pull Bloomberg PX_LAST + BEST_NET_INCOME via blpapi for the current "
+            "Nasdaq-100. Cache mode if BLOOMBERG_TERMINAL_AVAILABLE is unset/false."
+        ),
         "actions": [
             _py("settings.py"),
-            _py("pull_manual_companies.py"),
+            _py("pull_bloomberg_via_api.py"),
         ],
         "targets": [
             DATA_DIR / "US_Companies_Forecast.parquet",
@@ -239,9 +242,8 @@ def task_pull():
         ],
         "file_dep": [
             "./src/settings.py",
-            "./src/pull_manual_companies.py",
-            "./src/pull_manual_macro.py",
-            str(MANUAL_DATA_DIR / "US_Companies_Prediction_Data.xlsx"),
+            "./src/pull_bloomberg_via_api.py",
+            str(MANUAL_DATA_DIR / "_meta" / "nasdaq100_constituents.csv"),
         ],
         "clean": [],
     }
